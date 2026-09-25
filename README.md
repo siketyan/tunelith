@@ -107,7 +107,9 @@ tunelithd
 ```
 
 It listens on `/run/tunelith/tunelithd.sock`, or where `--socket` or
-`TUNELITH_SOCKET` says. Whoever may write to the socket may use the tuners.
+`TUNELITH_SOCKET` says, and lets the members of the `video` group use the
+tuners, or of the group `--socket-group` names. Run as a user who cannot write
+to `/run`, it needs `--socket` to point elsewhere, and so do its clients.
 
 ### The `tunelith` command
 

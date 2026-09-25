@@ -7,6 +7,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::io;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::process::ExitCode;
@@ -36,6 +37,10 @@ struct Args {
     /// The socket to listen on.
     #[arg(long, env = "TUNELITH_SOCKET", default_value = proto::DEFAULT_SOCKET)]
     socket: PathBuf,
+    /// The group whose members may use the tuners through the socket; empty
+    /// for the group the daemon runs as.
+    #[arg(long, default_value = "video")]
+    socket_group: String,
 }
 
 type Chunk = Arc<[u8]>;
@@ -261,12 +266,22 @@ impl Daemon {
         lnb: bool,
     ) -> Result<(Box<dyn Tuner>, StreamFormat, ByteStream)> {
         let mut tuner = device.open_tuner(index).await?;
-        if lnb {
-            tuner.set_lnb(true).await?;
+        let started = async {
+            if lnb {
+                tuner.set_lnb(true).await?;
+            }
+            tuner.tune(params).await?;
+            tuner.stream().await
         }
-        tuner.tune(params).await?;
-        let (format, stream) = tuner.stream().await?;
-        Ok((tuner, format, stream))
+        .await;
+        match started {
+            Ok((format, stream)) => Ok((tuner, format, stream)),
+            Err(e) => {
+                // Closed before it is marked free again.
+                tuner.close().await;
+                Err(e)
+            }
+        }
     }
 
     /// Hands each chunk of the stream to the clients of the session, until
@@ -587,9 +602,38 @@ async fn bind(path: &Path) -> io::Result<UnixListener> {
     UnixListener::bind(path)
 }
 
+/// Lets the owner and `group` connect to the socket, and no one else.
+fn share(path: &Path, group: &str) -> io::Result<()> {
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o660))?;
+    if group.is_empty() {
+        return Ok(());
+    }
+    match gid(group)? {
+        Some(gid) => std::os::unix::fs::chown(path, None, Some(gid)),
+        None => {
+            eprintln!("no group {group}: the socket is for its owner alone");
+            Ok(())
+        }
+    }
+}
+
+/// The id of `group`.
+// ponytail: /etc/group alone; groups from NSS (LDAP and the like) need
+// getgrnam.
+fn gid(group: &str) -> io::Result<Option<u32>> {
+    let groups = std::fs::read_to_string("/etc/group")?;
+    Ok(groups.lines().find_map(|line| {
+        let mut fields = line.split(':');
+        (fields.next() == Some(group))
+            .then(|| fields.nth(1)?.parse().ok())
+            .flatten()
+    }))
+}
+
 async fn run(args: Args) -> Result<()> {
     let devices = open_devices().await?;
     let listener = bind(&args.socket).await?;
+    share(&args.socket, &args.socket_group)?;
     eprintln!("listening on {}", args.socket.display());
 
     let daemon = Arc::new(Daemon {
