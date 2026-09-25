@@ -8,6 +8,9 @@
 //! `navigator.usb.requestDevice` before `openDevice`, or have a policy
 //! (`WebUsbAllowDevicesForUrls`) allow it.
 //!
+//! With the `mock` feature, `openDevice` opens the mock device of
+//! `tunelith-driver-mock` instead, the firmware going unused.
+//!
 //! `example/` has a page that records from a tuner, and how to build it.
 #![cfg(target_arch = "wasm32")]
 
@@ -40,7 +43,13 @@ pub enum Polarization {
 // ponytail: the first device only; take an id once pages drive several.
 #[wasm_bindgen(js_name = openDevice)]
 pub async fn open_device(firmware: Vec<u8>) -> Result<Device, JsError> {
+    #[cfg(not(feature = "mock"))]
     let driver = tunelith_driver_px4::driver_with_firmware(firmware);
+    #[cfg(feature = "mock")]
+    let driver = {
+        drop(firmware);
+        tunelith_driver_mock::driver()
+    };
     let info = driver
         .probe()
         .await?
