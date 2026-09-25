@@ -18,9 +18,10 @@ struct Cli {
     /// Opens the devices directly rather than through tunelithd.
     #[arg(long, global = true)]
     direct: bool,
-    /// The socket tunelithd listens on.
-    #[arg(long, global = true, env = "TUNELITH_SOCKET", default_value = tunelith::DEFAULT_SOCKET)]
-    socket: PathBuf,
+    /// The socket tunelithd listens on; that of a tunelithd run for the user
+    /// if there is one, or else that of the system.
+    #[arg(long, global = true, env = "TUNELITH_SOCKET")]
+    socket: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -101,10 +102,11 @@ fn parse_u16(s: &str) -> Result<u16, String> {
 type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
 
 async fn connect(cli: &Cli) -> Result<Client> {
-    Client::connect(&cli.socket).await.map_err(|e| {
+    let socket = cli.socket.clone().unwrap_or_else(tunelith::default_socket);
+    Client::connect(&socket).await.map_err(|e| {
         format!(
             "cannot reach tunelithd at {}: {e} (start it, or pass --direct)",
-            cli.socket.display()
+            socket.display()
         )
         .into()
     })
