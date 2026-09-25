@@ -10,6 +10,8 @@ mod registry;
 mod traits;
 mod types;
 
+#[cfg(all(feature = "bda", windows))]
+pub mod bda;
 #[cfg(all(feature = "dvb", target_os = "linux"))]
 pub mod dvb;
 pub mod proto;
