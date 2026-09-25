@@ -1,0 +1,128 @@
+// The protocol between tunelithd and its clients.
+//
+// A connection carries frames, each a big-endian u32 length and an Envelope,
+// until the first frame says what the connection is for: control, or the data
+// of one stream, which then carries the raw TS or TLV bytes alone.
+
+syntax = "proto3";
+
+package tunelith.v1;
+
+message Envelope {
+  // Set by the client on a request and echoed on its response; 0 on events.
+  uint64 id = 1;
+
+  oneof body {
+    Hello hello = 2;
+    Error error = 3;
+
+    ListRequest list_request = 10;
+    ListResponse list_response = 11;
+    AcquireRequest acquire_request = 12;
+    AcquireResponse acquire_response = 13;
+    ReleaseRequest release_request = 14;
+    ReleaseResponse release_response = 15;
+    SignalRequest signal_request = 16;
+    SignalResponse signal_response = 17;
+
+    DropEvent drop_event = 30;
+  }
+}
+
+// The first frame both ways. The server answers with its version and no role.
+message Hello {
+  uint32 version = 1;
+
+  oneof role {
+    Control control = 2;
+    // Attaches the connection to the stream AcquireResponse gave the token of.
+    uint64 stream_token = 3;
+  }
+}
+
+message Control {}
+
+message Error {
+  string message = 1;
+}
+
+enum System {
+  SYSTEM_UNSPECIFIED = 0;
+  SYSTEM_ISDB_T = 1;
+  SYSTEM_ISDB_S = 2;
+  SYSTEM_ISDB_S3 = 3;
+}
+
+enum Polarization {
+  POLARIZATION_UNSPECIFIED = 0;
+  POLARIZATION_RIGHT = 1;
+  POLARIZATION_LEFT = 2;
+}
+
+enum StreamFormat {
+  STREAM_FORMAT_UNSPECIFIED = 0;
+  STREAM_FORMAT_TS = 1;
+  STREAM_FORMAT_TLV = 2;
+}
+
+message TuneParams {
+  System system = 1;
+  uint32 frequency_khz = 2;
+  optional uint32 stream_id = 3;
+  Polarization polarization = 4;
+}
+
+message Tuner {
+  string id = 1;
+  repeated System systems = 2;
+  // Whether a stream holds the tuner.
+  bool busy = 3;
+}
+
+message Device {
+  string id = 1;
+  string name = 2;
+  repeated Tuner tuners = 3;
+}
+
+message ListRequest {}
+
+message ListResponse {
+  repeated Device devices = 1;
+}
+
+// Takes a stream, sharing the tuner of another client tuned to the same.
+message AcquireRequest {
+  TuneParams params = 1;
+  // The tuner to use; any free one receiving the system if empty.
+  string tuner = 2;
+  // Powers the LNB of the antenna.
+  bool lnb = 3;
+}
+
+message AcquireResponse {
+  uint64 stream_token = 1;
+  string tuner = 2;
+  StreamFormat format = 3;
+}
+
+message ReleaseRequest {
+  uint64 stream_token = 1;
+}
+
+message ReleaseResponse {}
+
+message SignalRequest {
+  uint64 stream_token = 1;
+}
+
+message SignalResponse {
+  bool locked = 1;
+  optional double cnr_db = 2;
+}
+
+// Sent once a stream that fell behind catches up again, with what it missed.
+message DropEvent {
+  uint64 stream_token = 1;
+  uint64 dropped_bytes = 2;
+}

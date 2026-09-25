@@ -14,9 +14,13 @@ usb = ["dep:blocking", "dep:futures-timer", "dep:nusb"]
 [dependencies]
 futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
 blocking = { version = "1", optional = true }
+protobuf = "3.7.2"
 thiserror = "2"
 futures-timer = { version = "3", optional = true }
 nusb = { version = "0.2.7", optional = true }
+
+[build-dependencies]
+protobuf-codegen = "3.7.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = { version = "0.2", optional = true }
