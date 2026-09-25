@@ -19,6 +19,9 @@ thiserror = "2"
 futures-timer = { version = "3", optional = true }
 nusb = { version = "0.2.7", optional = true }
 
+[dev-dependencies]
+futures = { version = "0.3", features = ["executor"] }
+
 [build-dependencies]
 protobuf-codegen = "3.7.2"
 

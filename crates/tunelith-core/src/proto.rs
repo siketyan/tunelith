@@ -35,12 +35,13 @@ pub fn encode(envelope: &Envelope) -> Vec<u8> {
 
 /// Reads a frame, or `None` if the connection ends before one starts.
 pub async fn read(reader: &mut (impl AsyncRead + Unpin)) -> io::Result<Option<Envelope>> {
+    // Only an end before the first byte is a clean one; within the length,
+    // it is a truncated frame.
     let mut len = [0; 4];
-    match reader.read_exact(&mut len).await {
-        Ok(()) => {}
-        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
-        Err(e) => return Err(e),
+    if reader.read(&mut len[..1]).await? == 0 {
+        return Ok(None);
     }
+    reader.read_exact(&mut len[1..]).await?;
 
     let len = u32::from_be_bytes(len) as usize;
     if len > MAX_FRAME {
@@ -199,6 +200,17 @@ mod tests {
         );
         assert_eq!(block_on(read(&mut reader)).unwrap().unwrap().id, 8);
         assert!(block_on(read(&mut reader)).unwrap().is_none());
+    }
+
+    #[test]
+    fn rejects_truncated_frames() {
+        let frame = encode(&envelope(
+            1,
+            envelope::Body::ListRequest(Default::default()),
+        ));
+        for len in [2, frame.len() - 1] {
+            assert!(block_on(read(&mut &frame[..len])).is_err());
+        }
     }
 
     #[test]
