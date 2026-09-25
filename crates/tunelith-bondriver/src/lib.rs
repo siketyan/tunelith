@@ -250,7 +250,10 @@ impl BonDriver {
             0 => Duration::MAX,
             ms => Duration::from_millis(ms.into()),
         };
-        match handle.block_on(tokio::time::timeout(timeout, chunks.recv())) {
+        // The timer is made within the runtime, which it needs.
+        let received =
+            handle.block_on(async { tokio::time::timeout(timeout, chunks.recv()).await });
+        match received {
             Ok(Some(chunk)) => {
                 data.pending = Some(chunk);
                 WAIT_OBJECT_0
