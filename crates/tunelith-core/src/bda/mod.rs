@@ -351,26 +351,22 @@ impl<Q: Quirks> Device for BdaDeviceHandle<Q> {
                 .get(index)
                 .cloned()
                 .ok_or_else(|| Error::NotFound(format!("{}#{index}", self.info.id)))?;
-            {
-                let mut opened = self.opened.lock().unwrap();
-                if std::mem::replace(&mut opened[index], true) {
-                    return Err(io::Error::from(io::ErrorKind::ResourceBusy).into());
-                }
+            if std::mem::replace(&mut self.opened.lock().unwrap()[index], true) {
+                return Err(io::Error::from(io::ErrorKind::ResourceBusy).into());
             }
-            let graph = blocking::unblock(move || Graph::build(filters)).await;
-            let graph = match graph {
-                Ok(graph) => graph,
-                Err(e) => {
-                    self.opened.lock().unwrap()[index] = false;
-                    return Err(e.into());
-                }
-            };
+            // The mark goes with the graph, so that the tuner is free again
+            // once the graph is gone, even if the caller gave up on it while
+            // it was being built.
+            let opened = Opened(self.opened.clone(), index);
+            let (graph, opened) =
+                blocking::unblock(move || Graph::build(filters).map(|graph| (graph, opened)))
+                    .await?;
             Ok(Box::new(BdaTuner {
                 graph: Arc::new(graph),
                 systems: self.tuners[index].systems.clone(),
                 quirks: self.quirks.clone(),
                 system: None,
-                _opened: Opened(self.opened.clone(), index),
+                _opened: opened,
             }) as Box<dyn Tuner>)
         }
         .boxed()
@@ -633,11 +629,12 @@ impl<Q: Quirks> Tuner for BdaTuner<Q> {
         let quirks = self.quirks.clone();
         blocking::unblock(move || {
             let locked = graph.locked()?;
-            let strength = graph.signal(ks::KSPROPERTY_BDA_SIGNAL_STRENGTH)? as i32;
-            Ok(Signal {
-                locked,
-                cnr_db: quirks.cnr_db(strength),
-            })
+            // The strength is optional in BDA; without it there is no C/N.
+            let cnr_db = graph
+                .signal(ks::KSPROPERTY_BDA_SIGNAL_STRENGTH)
+                .ok()
+                .and_then(|strength| quirks.cnr_db(strength as i32));
+            Ok(Signal { locked, cnr_db })
         })
         .boxed()
     }
