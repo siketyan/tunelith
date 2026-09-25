@@ -68,3 +68,29 @@ test("close ends a pending read", async ({ page }) => {
   );
   expect(read).toBeUndefined();
 });
+
+test("close ends a read started as an aborted one resumes", async ({ page }) => {
+  await page.goto("/");
+  const bytes = typeof firmware === "string" ? [...(await readFile(firmware))] : [];
+  const reads = await page.evaluate(
+    async ({ bytes, frequency }) => {
+      const url = "/pkg/tunelith_wasm.js";
+      const tunelith = await import(url);
+      await tunelith.default();
+      const device = await tunelith.openDevice(new Uint8Array(bytes));
+      const tuner = await device.openTuner(0);
+      await tuner.tune("ISDB-T", frequency);
+      await tuner.read();
+      // The tune aborts the first read, and the second starts before the
+      // first resumes; the close is to end the second.
+      const first = tuner.read();
+      const tuned = tuner.tune("ISDB-T", frequency);
+      const second = tuner.read();
+      await Promise.all([first, tuned]);
+      await tuner.close();
+      return [await first, await second];
+    },
+    { bytes, frequency: Number(frequency) },
+  );
+  expect(reads).toEqual([undefined, undefined]);
+});
