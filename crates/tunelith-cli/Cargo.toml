@@ -5,17 +5,22 @@ edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 license = "GPL-2.0-only"
-description = "Tunes Japanese digital broadcasts by frequency and stream id, writing the stream to stdout"
-
+description = "The tunelith command, tuning Japanese digital broadcasts by frequency and stream id, and tunelithd, sharing the tuners among programs"
 
 [[bin]]
 name = "tunelith"
 path = "src/main.rs"
 
+[[bin]]
+name = "tunelithd"
+path = "src/bin/tunelithd/main.rs"
+
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3"
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt-multi-thread"] }
+getrandom = "0.4"
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-util = { version = "0.7", features = ["compat"] }
 tunelith.workspace = true
 tunelith-core = { workspace = true, features = ["dvb"] }
 tunelith-driver-pt4k.workspace = true
