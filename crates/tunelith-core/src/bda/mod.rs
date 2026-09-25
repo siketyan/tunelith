@@ -420,6 +420,10 @@ impl Graph {
             &ks::first_data_range(&tuner, filters.input)?,
             None,
         )?;
+        // The input pin is what tells the tuner is in use by another
+        // program, and it is to tell so before the capture filter is
+        // touched: acquiring and letting go of that stops the other's stream.
+        antenna.set_state(State::Acquire)?;
         let capture_input = ks::create_pin(
             &capture,
             filters.capture_input,
@@ -445,7 +449,7 @@ impl Graph {
         capture_input.set_state(State::Acquire)?;
         let allocator = tuner_output.connect_pipe(&capture_input)?;
         for state in [State::Acquire, State::Pause, State::Run] {
-            for pin in [&capture_input, &capture_output, &antenna, &tuner_output] {
+            for pin in [&antenna, &tuner_output, &capture_input, &capture_output] {
                 pin.set_state(state)?;
             }
         }
