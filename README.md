@@ -38,8 +38,8 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 The USB driver runs in user space over [nusb](https://github.com/kevinmehall/nusb),
 which also works on Windows (WinUSB), macOS and in Chromium browsers (WebUSB);
-Tunelith does not build for them yet. On Windows, the PT4K is to go through
-BDA.
+Tunelith builds for Windows and macOS, but has not run on a device there yet.
+On Windows, the PT4K is to go through BDA.
 
 A PX-Q model is two boards on one card; Tunelith joins them into one device
 of eight tuners, powered together.
@@ -106,7 +106,8 @@ the tuner already receiving the same for another program.
 tunelithd
 ```
 
-It listens on `/run/tunelith/tunelithd.sock`, or where `--socket` or
+It listens on `/run/tunelith/tunelithd.sock` (on Windows, the named pipe
+`\\.\pipe\tunelith`), or where `--socket` or
 `TUNELITH_SOCKET` says, and lets the members of the `video` group use the
 tuners, or of the group `--socket-group` names. Run as a user who cannot write
 to `/run`, it needs `--socket` to point elsewhere, and so do its clients.
