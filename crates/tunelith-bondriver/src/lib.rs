@@ -4,7 +4,7 @@
 //! to the vtable, then what Rust keeps. On x64 the member functions take
 //! `this` first in the C calling convention, on Windows as on Linux. The
 //! tuning spaces and channels come from a TOML file beside the library, of the
-//! same name ([`config`]).
+//! same name (`config.rs`).
 
 // The crate is named after the file the hosts look for.
 #![allow(non_snake_case)]
