@@ -17,6 +17,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::unix::OwnedWriteHalf;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::signal::unix::{SignalKind, signal};
+use tokio::sync::Notify;
 use tokio::sync::mpsc::{self, error::TrySendError};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tunelith_core::proto::{self, Envelope, envelope::Body, hello::Role};
@@ -49,7 +50,6 @@ struct State {
     tokens: HashMap<u64, Arc<Session>>,
     /// The data of the streams whose data connection has yet to attach.
     unattached: HashMap<u64, mpsc::Receiver<Chunk>>,
-    next_token: u64,
 }
 
 /// A tuner tuned to `params`, and the clients taking its stream.
@@ -57,8 +57,11 @@ struct Session {
     params: TuneParams,
     tuner_id: String,
     format: StreamFormat,
-    tuner: tokio::sync::Mutex<Box<dyn Tuner>>,
+    /// Taken once the session ends.
+    tuner: tokio::sync::Mutex<Option<Box<dyn Tuner>>>,
     subscribers: Mutex<HashMap<u64, Subscriber>>,
+    /// Stops the fan-out once the last client has gone.
+    stop: Notify,
 }
 
 struct Subscriber {
@@ -112,9 +115,15 @@ impl Daemon {
         state: &mut State,
         session: &Arc<Session>,
         events: &mpsc::UnboundedSender<Envelope>,
-    ) -> proto::AcquireResponse {
-        state.next_token += 1;
-        let token = state.next_token;
+    ) -> Result<proto::AcquireResponse> {
+        // The token is all a data connection shows to take the stream, so it
+        // must not be guessed by the other users of the socket.
+        let token = loop {
+            let token = getrandom::u64().map_err(io::Error::other)?;
+            if token != 0 && !state.tokens.contains_key(&token) {
+                break token;
+            }
+        };
         let (tx, rx) = mpsc::channel(BACKLOG);
         session.subscribers.lock().unwrap().insert(
             token,
@@ -126,12 +135,12 @@ impl Daemon {
         );
         state.tokens.insert(token, session.clone());
         state.unattached.insert(token, rx);
-        proto::AcquireResponse {
+        Ok(proto::AcquireResponse {
             stream_token: token,
             tuner: session.tuner_id.clone(),
             format: session.format.into(),
             ..Default::default()
-        }
+        })
     }
 
     async fn acquire(
@@ -151,7 +160,7 @@ impl Daemon {
                 .find(|s| s.params == params && wanted(&s.tuner_id))
                 .cloned();
             if let Some(session) = shared {
-                return Ok(Self::subscribe(&mut state, &session, events));
+                return Self::subscribe(&mut state, &session, events);
             }
         }
 
@@ -175,14 +184,15 @@ impl Daemon {
                             params,
                             tuner_id: info.id.clone(),
                             format,
-                            tuner: tokio::sync::Mutex::new(tuner),
+                            tuner: tokio::sync::Mutex::new(Some(tuner)),
                             subscribers: Mutex::default(),
+                            stop: Notify::new(),
                         });
                         let mut state = self.state.lock().unwrap();
                         state.sessions.push(session.clone());
                         let response = Self::subscribe(&mut state, &session, events);
                         tokio::spawn(self.clone().fan_out(session, stream));
-                        return Ok(response);
+                        return response;
                     }
                     Err(e) => {
                         self.state.lock().unwrap().busy.remove(&info.id);
@@ -221,22 +231,20 @@ impl Daemon {
     /// Hands each chunk of the stream to the clients of the session, until
     /// none is left or the stream ends.
     async fn fan_out(self: Arc<Self>, session: Arc<Session>, mut stream: ByteStream) {
-        while let Some(Ok(chunk)) = stream.next().await {
+        loop {
+            let chunk = tokio::select! {
+                chunk = stream.next() => chunk,
+                () = session.stop.notified() => break,
+            };
+            let Some(Ok(chunk)) = chunk else {
+                break;
+            };
             let chunk = Chunk::from(chunk);
             let mut subscribers = session.subscribers.lock().unwrap();
             subscribers.retain(
                 |&token, subscriber| match subscriber.tx.try_send(chunk.clone()) {
                     Ok(()) => {
-                        if subscriber.dropped > 0 {
-                            let event = proto::DropEvent {
-                                stream_token: token,
-                                dropped_bytes: std::mem::take(&mut subscriber.dropped),
-                                ..Default::default()
-                            };
-                            let _ = subscriber
-                                .events
-                                .send(proto::envelope(0, Body::DropEvent(event)));
-                        }
+                        flush_drops(token, subscriber);
                         true
                     }
                     Err(TrySendError::Full(_)) => {
@@ -247,45 +255,69 @@ impl Daemon {
                 },
             );
             if subscribers.is_empty() {
-                break;
+                drop(subscribers);
+                if self.close_if_idle(&session) {
+                    break;
+                }
             }
         }
-        self.end(&session);
+        drop(stream);
+        self.end(&session).await;
     }
 
-    /// Lets go of the tuner of `session`, ending the streams of its clients.
-    fn end(&self, session: &Arc<Session>) {
+    /// Takes `session` out of the running ones if it has no client left, so
+    /// that no one joins it any more; whether it did.
+    fn close_if_idle(&self, session: &Arc<Session>) -> bool {
         let mut state = self.state.lock().unwrap();
-        if let Some(i) = state.sessions.iter().position(|s| Arc::ptr_eq(s, session)) {
-            state.sessions.remove(i);
-            state.busy.remove(&session.tuner_id);
+        let idle = session.subscribers.lock().unwrap().is_empty();
+        if idle {
+            state.sessions.retain(|s| !Arc::ptr_eq(s, session));
         }
-        let tokens: Vec<_> = state
-            .tokens
-            .iter()
-            .filter(|(_, s)| Arc::ptr_eq(s, session))
-            .map(|(&t, _)| t)
-            .collect();
-        for token in tokens {
-            state.tokens.remove(&token);
-            state.unattached.remove(&token);
+        idle
+    }
+
+    /// Ends the streams of the clients of `session`, then lets go of its
+    /// tuner.
+    async fn end(&self, session: &Arc<Session>) {
+        {
+            let mut state = self.state.lock().unwrap();
+            let State {
+                sessions,
+                tokens,
+                unattached,
+                ..
+            } = &mut *state;
+            sessions.retain(|s| !Arc::ptr_eq(s, session));
+            tokens.retain(|token, s| {
+                let ours = Arc::ptr_eq(s, session);
+                if ours {
+                    unattached.remove(token);
+                }
+                !ours
+            });
+            for (token, mut subscriber) in session.subscribers.lock().unwrap().drain() {
+                flush_drops(token, &mut subscriber);
+            }
         }
-        session.subscribers.lock().unwrap().clear();
+
+        // Only once the tuner is closed is it free for another stream.
+        drop(session.tuner.lock().await.take());
+        self.state.lock().unwrap().busy.remove(&session.tuner_id);
     }
 
     fn release(&self, token: u64) {
-        let session = {
-            let mut state = self.state.lock().unwrap();
-            state.unattached.remove(&token);
-            state.tokens.remove(&token)
+        let mut state = self.state.lock().unwrap();
+        state.unattached.remove(&token);
+        let Some(session) = state.tokens.remove(&token) else {
+            return;
         };
-        if let Some(session) = session {
-            let mut subscribers = session.subscribers.lock().unwrap();
-            subscribers.remove(&token);
-            if subscribers.is_empty() {
-                drop(subscribers);
-                self.end(&session);
-            }
+        let mut subscribers = session.subscribers.lock().unwrap();
+        subscribers.remove(&token);
+        if subscribers.is_empty() {
+            // Out of the running ones at once, so that no one joins it while
+            // its fan-out ends it.
+            state.sessions.retain(|s| !Arc::ptr_eq(s, &session));
+            session.stop.notify_one();
         }
     }
 
@@ -298,7 +330,11 @@ impl Daemon {
             .get(&token)
             .cloned()
             .ok_or_else(|| Error::NotFound(format!("stream {token}")))?;
-        let signal = session.tuner.lock().await.signal().await?;
+        let mut tuner = session.tuner.lock().await;
+        let tuner = tuner
+            .as_mut()
+            .ok_or_else(|| Error::NotFound(format!("stream {token}")))?;
+        let signal = tuner.signal().await?;
         Ok(signal.into())
     }
 
@@ -306,15 +342,18 @@ impl Daemon {
         self: &Arc<Self>,
         body: Option<Body>,
         events: &mpsc::UnboundedSender<Envelope>,
-        owned: &Mutex<HashSet<u64>>,
+        owned: &Mutex<Option<HashSet<u64>>>,
     ) -> Body {
         match body {
             Some(Body::ListRequest(_)) => Body::ListResponse(self.list()),
             Some(Body::AcquireRequest(request)) => match self.acquire(&request, events).await {
                 Ok(response) => {
-                    owned.lock().unwrap().insert(response.stream_token);
-                    // The client may have gone while the tuner was tuning.
-                    if events.is_closed() {
+                    let kept = match owned.lock().unwrap().as_mut() {
+                        Some(owned) => owned.insert(response.stream_token),
+                        None => false,
+                    };
+                    // The client went while the tuner was tuning.
+                    if !kept {
                         self.release(response.stream_token);
                     }
                     Body::AcquireResponse(response)
@@ -322,7 +361,9 @@ impl Daemon {
                 Err(e) => error(e),
             },
             Some(Body::ReleaseRequest(request)) => {
-                owned.lock().unwrap().remove(&request.stream_token);
+                if let Some(owned) = owned.lock().unwrap().as_mut() {
+                    owned.remove(&request.stream_token);
+                }
                 self.release(request.stream_token);
                 Body::ReleaseResponse(Default::default())
             }
@@ -394,7 +435,8 @@ impl Daemon {
             }
         });
 
-        let owned = Arc::new(Mutex::new(HashSet::new()));
+        // The streams of the client, `None` once it has gone.
+        let owned = Arc::new(Mutex::new(Some(HashSet::new())));
         while let Ok(Some(envelope)) = proto::read(&mut read).await {
             let daemon = self.clone();
             let events = events.clone();
@@ -406,10 +448,24 @@ impl Daemon {
         }
 
         // The client has gone: its streams go with it.
-        let tokens: Vec<_> = owned.lock().unwrap().drain().collect();
+        let tokens = owned.lock().unwrap().take().unwrap_or_default();
         for token in tokens {
             self.release(token);
         }
+    }
+}
+
+/// Tells the client what it lost since it last kept up, if anything.
+fn flush_drops(token: u64, subscriber: &mut Subscriber) {
+    if subscriber.dropped > 0 {
+        let event = proto::DropEvent {
+            stream_token: token,
+            dropped_bytes: std::mem::take(&mut subscriber.dropped),
+            ..Default::default()
+        };
+        let _ = subscriber
+            .events
+            .send(proto::envelope(0, Body::DropEvent(event)));
     }
 }
 

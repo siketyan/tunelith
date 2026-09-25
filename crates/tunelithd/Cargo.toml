@@ -9,6 +9,7 @@ description = "Daemon sharing Japanese digital broadcasting tuners among program
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3"
+getrandom = "0.4"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 tunelith-core = { workspace = true, features = ["dvb"] }

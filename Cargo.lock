@@ -875,6 +875,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "futures",
+ "getrandom",
  "tokio",
  "tokio-util",
  "tunelith-core",
