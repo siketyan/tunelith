@@ -7,6 +7,10 @@ license = "GPL-2.0-only"
 description = "Tunes Japanese digital broadcasts by frequency and stream id, writing the stream to stdout"
 
 
+[[bin]]
+name = "tunelith"
+path = "src/main.rs"
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
