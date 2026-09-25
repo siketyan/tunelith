@@ -22,6 +22,7 @@ use tunelith_core::{
 
 use crate::it930x::{EP_STREAM, It930x};
 use crate::stream::Hub;
+use crate::timer::FineTimer;
 
 pub type Bridge = It930x<NusbTransport>;
 
@@ -96,6 +97,8 @@ struct State<B> {
 struct Shared<B> {
     state: Mutex<State<B>>,
     hubs: Vec<Hub>,
+    /// Held as long as the device or a tuner of it is.
+    _timer: FineTimer,
 }
 
 /// A device over `board`, whose tuners receive `systems`, and whose bridges
@@ -121,6 +124,7 @@ pub fn device<B: Board>(
                 opened: vec![false; tuners.len()],
             }),
             hubs: tagged.iter().map(|&t| Hub::new(t)).collect(),
+            _timer: FineTimer::new(),
         }),
         info,
         tuners,

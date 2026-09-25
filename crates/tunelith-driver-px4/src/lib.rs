@@ -18,6 +18,7 @@ mod rt710;
 mod single;
 mod stream;
 mod tc90522;
+mod timer;
 
 use std::io;
 use std::path::PathBuf;
@@ -201,6 +202,8 @@ impl Driver for Px4Driver {
 
     fn open<'a>(&'a self, info: &'a DeviceInfo) -> BoxFuture<'a, Result<Box<dyn Device>>> {
         async move {
+            // For the bridges set up before the device holds its own.
+            let _timer = timer::FineTimer::new();
             let Found { usbs, model, info } = scan()
                 .await?
                 .into_iter()
