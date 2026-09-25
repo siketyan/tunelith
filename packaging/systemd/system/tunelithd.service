@@ -2,7 +2,7 @@
 # through /run/tunelith/tunelithd.sock.
 #
 # Install to /etc/systemd/system/, then `systemctl enable --now tunelithd`.
-# The USB tuners need packaging/udev/90-tunelith.rules for the daemon to reach
+# The USB tuners need packaging/udev/70-tunelith.rules for the daemon to reach
 # them.
 
 [Unit]

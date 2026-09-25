@@ -1,5 +1,6 @@
 # Lets the video group, and the user logged in at the seat, drive the USB
 # tuners of PLEX, e-better and Digibest (all under vendor 0x0511) through
-# usbfs. Install to /etc/udev/rules.d/, then
+# usbfs. It must come before 73-seat-late.rules, which acts on the uaccess
+# tag. Install to /etc/udev/rules.d/, then
 # `udevadm control --reload && udevadm trigger`.
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0511", MODE="0660", GROUP="video", TAG+="uaccess"

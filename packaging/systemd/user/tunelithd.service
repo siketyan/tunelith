@@ -3,7 +3,7 @@
 # for it first.
 #
 # Install to ~/.config/systemd/user/, then `systemctl --user enable --now
-# tunelithd`. The user needs access to the tuners: packaging/udev/90-tunelith.rules
+# tunelithd`. The user needs access to the tuners: packaging/udev/70-tunelith.rules
 # gives it to the video group and to the user logged in at the seat.
 
 [Unit]

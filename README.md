@@ -83,11 +83,11 @@ If px4_drv is installed, the file is already in `/lib/firmware/`.
 ### Permissions (Linux)
 
 The USB tuners are driven through usbfs, which needs write access to the
-device node. [`packaging/udev/90-tunelith.rules`](packaging/udev/90-tunelith.rules)
+device node. [`packaging/udev/70-tunelith.rules`](packaging/udev/70-tunelith.rules)
 gives it to the `video` group and to the user logged in at the seat:
 
 ```shell
-sudo install -m644 packaging/udev/90-tunelith.rules /etc/udev/rules.d/
+sudo install -m644 packaging/udev/70-tunelith.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger
 ```
 
