@@ -63,6 +63,15 @@ pub trait Quirks: Send + Sync + 'static {
         ))
     }
 
+    /// Powers the LNB of a satellite antenna on or off through the input pin
+    /// of the tuner filter. BDA has no property of its own for it.
+    fn set_lnb(&self, _input: &Pin<'_>, _on: bool) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "the tuner has no known way to power the LNB",
+        ))
+    }
+
     /// The bytes the tuner gives out after a tune that it received before,
     /// which are left out.
     fn stale_bytes(&self) -> usize {
@@ -96,6 +105,20 @@ impl Pin<'_> {
         let mut request = ks::request(set, id, ks::SET, &[]);
         request.extend_from_slice(instance);
         self.0.set(&request, value)
+    }
+
+    /// Gets the property `id` of the property set `set` into `value`, with
+    /// `instance` following the `KSPROPERTY` of the request; the bytes got.
+    pub fn get_property(
+        &self,
+        set: u128,
+        id: u32,
+        instance: &[u8],
+        value: &mut [u8],
+    ) -> io::Result<usize> {
+        let mut request = ks::request(set, id, ks::GET, &[]);
+        request.extend_from_slice(instance);
+        self.0.get(&request, value)
     }
 }
 
@@ -366,6 +389,7 @@ impl<Q: Quirks> Device for BdaDeviceHandle<Q> {
                 systems: self.tuners[index].systems.clone(),
                 quirks: self.quirks.clone(),
                 system: None,
+                lnb: false,
                 _opened: opened,
             }) as Box<dyn Tuner>)
         }
@@ -606,13 +630,27 @@ impl Drop for Graph {
     }
 }
 
-struct BdaTuner<Q> {
+struct BdaTuner<Q: Quirks> {
     graph: Arc<Graph>,
     systems: Vec<System>,
     quirks: Arc<Q>,
     /// The system last tuned to.
     system: Option<System>,
+    /// Whether the LNB was powered through this tuner, to be turned off with
+    /// it.
+    lnb: bool,
     _opened: Opened,
+}
+
+impl<Q> Drop for BdaTuner<Q>
+where
+    Q: Quirks,
+{
+    fn drop(&mut self) {
+        if self.lnb {
+            let _ = self.quirks.set_lnb(&Pin(&self.graph.antenna), false);
+        }
+    }
 }
 
 impl<Q: Quirks> Tuner for BdaTuner<Q> {
@@ -662,15 +700,15 @@ impl<Q: Quirks> Tuner for BdaTuner<Q> {
 
     fn set_lnb(&mut self, on: bool) -> BoxFuture<'_, Result<()>> {
         async move {
-            if on {
-                // ponytail: BDA has no property for the LNB supply, and the
-                // vendors' ways are not known yet.
-                return Err(io::Error::new(
-                    io::ErrorKind::Unsupported,
-                    "powering the LNB is not supported through BDA yet",
-                )
-                .into());
-            }
+            let graph = self.graph.clone();
+            let quirks = self.quirks.clone();
+            blocking::unblock(move || match quirks.set_lnb(&Pin(&graph.antenna), on) {
+                // Nothing to turn off where there is no way to turn it on.
+                Err(e) if !on && e.kind() == io::ErrorKind::Unsupported => Ok(()),
+                result => result,
+            })
+            .await?;
+            self.lnb = on;
             Ok(())
         }
         .boxed()

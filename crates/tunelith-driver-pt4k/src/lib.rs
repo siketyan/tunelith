@@ -50,6 +50,12 @@ mod windows {
     /// The stream id to select, as a ULONG both in the request and as the
     /// value.
     const TBS_STREAM_ID: u32 = 96;
+    /// A command, got rather than set: 188 bytes in the request and as many
+    /// back.
+    const TBS_COMMAND: u32 = 0;
+    const TBS_COMMAND_SIZE: usize = 188;
+    /// Where the command takes the LNB supply, as a ULONG: 1 for on.
+    const TBS_COMMAND_LNB_POWER: usize = 184;
 
     pub struct Pt4k;
 
@@ -67,6 +73,16 @@ mod windows {
         fn select_stream(&self, input: &Pin<'_>, _system: System, id: StreamId) -> io::Result<()> {
             let id = u32::from(id.0).to_le_bytes();
             input.set_property(TBS_EXTENSION, TBS_STREAM_ID, &id, &id)
+        }
+
+        // ponytail: 0 for off is inferred from 1 for on, which is all that
+        // was seen of the command; the supply could not be measured here.
+        fn set_lnb(&self, input: &Pin<'_>, on: bool) -> io::Result<()> {
+            let mut command = [0; TBS_COMMAND_SIZE];
+            command[TBS_COMMAND_LNB_POWER..][..4].copy_from_slice(&u32::from(on).to_le_bytes());
+            let mut reply = [0; TBS_COMMAND_SIZE];
+            input.get_property(TBS_EXTENSION, TBS_COMMAND, &command, &mut reply)?;
+            Ok(())
         }
 
         /// Once it starts to receive, the tuner gives out a round of its

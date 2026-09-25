@@ -39,7 +39,7 @@ EPG，デスクランブルは上位のレイヤに任せます．
 | Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U[^untested] | ✅ | ✅ | ✅ | ✅ |
 | Digibest ISDBT2071 / e-better DTV03A-1TU[^untested] | ✅ | ✅ | ✅ | ✅ |
 | e-better DTV02A-5TS-P | ✅ | ✅ | ✅ | ✅ |
-| PT4K (TBS6812)[^left] | ✅ | ✅[^bda] | — | — |
+| PT4K (TBS6812)[^left] | ✅ | ✅ | — | — |
 | Linux DVB ドライバのあるその他の ISDB チューナ | ✅[^generic] | — | — | — |
 
 ✅ 対応，🚧 対応予定，— 予定なし．
@@ -56,8 +56,6 @@ EPG，デスクランブルは上位のレイヤに任せます．
     試していません．報告を歓迎します．
 [^generic]: カーネルドライバが対応するものをそのまま扱います．機種固有の処理は
     専用のドライバで行います．
-[^bda]: TBS の BDA ドライバを通して扱います．Windows からはまだカードで LNB に給電できず，
-    `--lnb` は失敗します．LNB には別の手段で給電してください．
 [^os]: CI で macOS 向けにビルドしテストが通っていますが，まだ実機では動かして
     いません．
 

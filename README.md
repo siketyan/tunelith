@@ -39,7 +39,7 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 | Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U[^untested] | ✅ | ✅ | ✅ | ✅ |
 | Digibest ISDBT2071 / e-better DTV03A-1TU[^untested] | ✅ | ✅ | ✅ | ✅ |
 | e-better DTV02A-5TS-P | ✅ | ✅ | ✅ | ✅ |
-| PT4K (TBS6812)[^left] | ✅ | ✅[^bda] | — | — |
+| PT4K (TBS6812)[^left] | ✅ | ✅ | — | — |
 | Other ISDB tuners with a Linux DVB driver | ✅[^generic] | — | — | — |
 
 ✅ supported, 🚧 planned, — not planned.
@@ -57,8 +57,6 @@ definitions, scanning, EPG and descrambling are left to the layer above.
     tested on the device itself. Reports are welcome.
 [^generic]: Whatever the kernel driver supports, taken as it is. Model-specific
     handling goes in a driver of its own.
-[^bda]: Through the BDA driver of TBS. The card cannot power the LNB from Windows
-    yet, so `--lnb` fails; the LNB is to be powered otherwise.
 [^os]: Builds and passes the tests on macOS in CI, but has not run on a device
     there yet.
 

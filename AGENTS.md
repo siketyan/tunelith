@@ -44,7 +44,8 @@ Rust (workspace of `crates/*`, edition 2024):
     graph, whose reference clock the TBS capture filter lacks. A change of tuning goes down at
     `KSMETHOD_BDA_COMMIT_CHANGES`, what is set after the commit waiting for the next one.
 - `tunelith-driver-pt4k` — the PT4K (TBS6812): `Quirks` over the generic DVB driver on Linux and the BDA one on
-  Windows, adding ISDB-S3; on Windows the stream id goes in TBS's property set (id 96).
+  Windows, adding ISDB-S3; on Windows the stream id goes in TBS's property set (id 96), and the LNB supply in a
+  command got through it (id 0).
 - `tunelith-driver-px4` — the PLEX / e-better / Digibest USB tuners, a port of px4_drv run in user space:
   - `it930x.rs` is the USB bridge; `cxd2856er.rs`, `cxd2858er.rs`, `tc90522.rs`, `r850.rs`, `rt710.rs` the chips,
     each taking `&mut impl I2c` (a TC90522 relays to its tuner through `tuner_bus`, a CXD2856ER through a gate).
