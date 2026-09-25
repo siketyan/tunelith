@@ -1,5 +1,7 @@
 # Tunelith
 
+English | [日本語](README.ja.md)
+
 A low-level, cross-platform abstraction over tuners for the Japanese digital
 broadcasting systems: ISDB-T, ISDB-S and ISDB-S3 (4K/8K), written in Rust.
 
