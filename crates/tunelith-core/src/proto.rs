@@ -19,8 +19,12 @@ use out::tunelith as generated;
 /// The version of the protocol, exchanged in [`Hello`].
 pub const VERSION: u32 = 1;
 
-/// Where tunelithd listens unless told otherwise.
+/// Where tunelithd listens unless told otherwise: a Unix domain socket, or a
+/// named pipe on Windows.
+#[cfg(not(windows))]
 pub const DEFAULT_SOCKET: &str = "/run/tunelith/tunelithd.sock";
+#[cfg(windows)]
+pub const DEFAULT_SOCKET: &str = r"\\.\pipe\tunelith";
 
 /// The largest frame taken, keeping a peer from making us allocate at will.
 pub const MAX_FRAME: usize = 1 << 20;

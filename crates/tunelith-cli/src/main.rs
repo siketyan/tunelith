@@ -8,7 +8,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use futures::StreamExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tunelith::{AcquireOptions, Client};
-use tunelith_core::{Polarization, Registry, StreamId, System, TuneParams, Tuner};
+use tunelith_core::{Driver, Polarization, Registry, StreamId, System, TuneParams, Tuner};
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -162,11 +162,14 @@ async fn tune(cli: &Cli, args: &TuneArgs) -> Result<()> {
 }
 
 fn registry() -> Registry {
-    Registry::new(vec![
+    let drivers: Vec<Box<dyn Driver>> = vec![
         Box::new(tunelith_driver_px4::driver()),
+        #[cfg(target_os = "linux")]
         Box::new(tunelith_driver_pt4k::driver()),
+        #[cfg(target_os = "linux")]
         Box::new(tunelith_core::dvb::DvbDriver::generic()),
-    ])
+    ];
+    Registry::new(drivers)
 }
 
 async fn list_direct() -> Result<()> {

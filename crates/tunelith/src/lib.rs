@@ -4,8 +4,6 @@
 //! free tuner for it, or shares the one another client is receiving the same
 //! on. The client needs a Tokio runtime.
 
-// ponytail: Unix domain sockets alone; Windows is to take a named pipe.
-
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -15,7 +13,6 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker, ready};
 
 use tokio::io::{AsyncRead, AsyncWriteExt, ReadBuf};
-use tokio::net::UnixStream;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 pub use tunelith_core::proto::DEFAULT_SOCKET;
@@ -115,9 +112,37 @@ fn unexpected() -> Error {
     .into()
 }
 
+/// A connection to tunelithd: a Unix domain socket, or a named pipe on
+/// Windows.
+#[cfg(unix)]
+type Connection = tokio::net::UnixStream;
+#[cfg(windows)]
+type Connection = tokio::net::windows::named_pipe::NamedPipeClient;
+
+#[cfg(unix)]
+async fn open(path: &Path) -> io::Result<Connection> {
+    Connection::connect(path).await
+}
+
+#[cfg(windows)]
+async fn open(path: &Path) -> io::Result<Connection> {
+    use tokio::net::windows::named_pipe::ClientOptions;
+
+    // ERROR_PIPE_BUSY: every instance of the pipe is taken for the moment.
+    const PIPE_BUSY: i32 = 231;
+    loop {
+        match ClientOptions::new().open(path) {
+            Err(e) if e.raw_os_error() == Some(PIPE_BUSY) => {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await
+            }
+            result => return result,
+        }
+    }
+}
+
 /// Opens a connection to tunelithd as `role`.
-async fn connect(path: &Path, role: Role) -> Result<UnixStream> {
-    let mut stream = UnixStream::connect(path).await?;
+async fn connect(path: &Path, role: Role) -> Result<Connection> {
+    let mut stream = open(path).await?;
     let hello = proto::Hello {
         version: proto::VERSION,
         role: Some(role),
@@ -140,7 +165,7 @@ impl Client {
     pub async fn connect(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref().to_owned();
         let stream = connect(&path, Role::Control(Default::default())).await?;
-        let (read, mut write) = stream.into_split();
+        let (read, mut write) = tokio::io::split(stream);
 
         let (requests, mut outgoing) = mpsc::unbounded_channel::<proto::Envelope>();
         tokio::spawn(async move {
@@ -315,7 +340,7 @@ pub struct Stream {
     tuner: String,
     format: StreamFormat,
     dropped: Arc<AtomicU64>,
-    data: UnixStream,
+    data: Connection,
 }
 
 impl Stream {
