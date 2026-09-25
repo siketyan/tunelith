@@ -177,6 +177,12 @@ tunelith tune --system isdb-s3 --freq 12034360 --stream-id 0xB110 > out.tlv
 
 The stream is MPEG-2 TS for ISDB-T and ISDB-S, and TLV for ISDB-S3.
 
+### Programs using the tuners
+
+A program receives through tunelithd with the [`tunelith`](crates/tunelith)
+crate; see its README and [API documentation](https://siketyan.github.io/tunelith/tunelith/)
+to get started.
+
 ## Not in scope
 
 - A channel list, channel scanning, service separation and EPG.
