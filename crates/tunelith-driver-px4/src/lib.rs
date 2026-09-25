@@ -126,6 +126,15 @@ fn error(message: &str) -> Error {
     io::Error::other(message).into()
 }
 
+/// Runs `future` apart from the caller: on a thread of its own, or in the
+/// browser as a task of its event loop.
+fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_futures::spawn_local(future);
+    #[cfg(not(target_arch = "wasm32"))]
+    std::thread::spawn(move || futures::executor::block_on(future));
+}
+
 pub struct Px4Driver;
 
 pub fn driver() -> Px4Driver {
