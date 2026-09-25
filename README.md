@@ -53,8 +53,7 @@ of eight tuners, powered together.
 | `tunelith` | The client of tunelithd | MIT OR Apache-2.0 |
 | `tunelith-driver-pt4k` | PT4K (TBS6812) on top of the generic DVB driver | MIT OR Apache-2.0 |
 | `tunelith-driver-px4` | The PLEX / e-better / Digibest USB tuners, ported from px4_drv | GPL-2.0-only |
-| `tunelithd` | The daemon sharing the tuners among programs | GPL-2.0-only |
-| `tunelith-cli` | The `tunelith` command | GPL-2.0-only |
+| `tunelith-cli` | The `tunelith` command and `tunelithd`, the daemon sharing the tuners among programs | GPL-2.0-only |
 
 `tunelith-driver-px4` is a port of [px4_drv](https://github.com/tsukumijima/px4_drv)
 and is under its license, GPL-2.0-only; see its [PROVENANCE.md](crates/tunelith-driver-px4/PROVENANCE.md).

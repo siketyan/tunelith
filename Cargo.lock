@@ -832,7 +832,9 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "futures",
+ "getrandom",
  "tokio",
+ "tokio-util",
  "tunelith",
  "tunelith-core",
  "tunelith-driver-pt4k",
@@ -867,20 +869,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "tunelith-core",
-]
-
-[[package]]
-name = "tunelithd"
-version = "0.1.0"
-dependencies = [
- "clap",
- "futures",
- "getrandom",
- "tokio",
- "tokio-util",
- "tunelith-core",
- "tunelith-driver-pt4k",
- "tunelith-driver-px4",
 ]
 
 [[package]]
