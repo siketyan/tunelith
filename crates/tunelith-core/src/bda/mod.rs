@@ -391,6 +391,10 @@ struct SinkState {
     tx: Option<mpsc::Sender<Vec<u8>>>,
     /// The bytes still to be left out as received before the last tune.
     stale: usize,
+    /// Whether the pins are being stopped, which ends the reads on purpose.
+    stopping: bool,
+    /// Why the reads ended otherwise, for the stream to tell.
+    failure: Option<io::Error>,
 }
 
 /// The pins of a tuner filter and its capture filter, connected and
@@ -462,9 +466,21 @@ impl Graph {
         let sink = Sink::default();
         let frames = sink.clone();
         thread::spawn(move || {
-            // Ends once the pins stop.
-            while let Ok(frame) = reader.next() {
+            loop {
+                let frame = reader.next();
                 let mut sink = frames.lock().unwrap();
+                let frame = match frame {
+                    Ok(frame) => frame,
+                    Err(e) => {
+                        // The pins stopping ends the stream as it is; a
+                        // failure otherwise is told at its end.
+                        if !sink.stopping {
+                            sink.failure = Some(e);
+                        }
+                        sink.tx = None;
+                        break;
+                    }
+                };
                 if sink.stale > 0 {
                     sink.stale = sink.stale.saturating_sub(frame.len());
                     continue;
@@ -578,6 +594,7 @@ impl Graph {
 
 impl Drop for Graph {
     fn drop(&mut self) {
+        self.sink.lock().unwrap().stopping = true;
         for pin in [
             &self.tuner_output,
             &self.antenna,
@@ -671,11 +688,15 @@ impl<Q: Quirks> Tuner for BdaTuner<Q> {
             let (tx, rx) = mpsc::channel(STREAM_BACKLOG);
             self.graph.sink.lock().unwrap().tx = Some(tx);
             let mut aligner = Aligner::new(format);
-            // The pins stopping ends the stream.
-            let stream = rx
+            let frames = rx
                 .map(move |frame| aligner.feed(frame))
                 .filter(|chunk| futures::future::ready(!chunk.is_empty()))
                 .map(Ok);
+            // Once the frames end, why they did if not on purpose.
+            let sink = self.graph.sink.clone();
+            let failure = futures::stream::once(async move { sink.lock().unwrap().failure.take() })
+                .filter_map(|e| futures::future::ready(e.map(|e| Err(e.into()))));
+            let stream = frames.chain(failure);
 
             Ok((format, stream.boxed()))
         }

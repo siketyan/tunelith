@@ -316,7 +316,8 @@ impl Handle {
             return Err(io::Error::from_raw_os_error(r as i32));
         }
         let allocator = Handle(allocator);
-        let value = (allocator.0 as usize as u64).to_le_bytes();
+        // A HANDLE, of the width of a pointer.
+        let value = (allocator.0 as usize).to_le_bytes();
         for (pin, id) in [
             (self, KSPROPERTY_STREAM_PIPE_ID),
             (self, KSPROPERTY_STREAM_ALLOCATOR),
@@ -401,8 +402,12 @@ pub fn create_pin(
     connect.extend_from_slice(&medium.id.to_le_bytes());
     connect.extend_from_slice(&0u32.to_le_bytes());
     connect.extend_from_slice(&pin.to_le_bytes());
-    connect.extend_from_slice(&0u32.to_le_bytes());
-    connect.extend_from_slice(&(to.map_or(null_mut(), |h| h.0) as usize as u64).to_le_bytes());
+    // The handle is aligned to its size, which leaves a gap on 64-bit
+    // targets.
+    if cfg!(target_pointer_width = "64") {
+        connect.extend_from_slice(&0u32.to_le_bytes());
+    }
+    connect.extend_from_slice(&(to.map_or(null_mut(), |h| h.0) as usize).to_le_bytes());
     // KSPRIORITY_NORMAL.
     connect.extend_from_slice(&0x4000_0000u32.to_le_bytes());
     connect.extend_from_slice(&1u32.to_le_bytes());
@@ -479,7 +484,7 @@ impl Drop for Event {
     }
 }
 
-/// `KSSTREAM_HEADER` as on 64-bit targets.
+/// `KSSTREAM_HEADER`.
 #[repr(C)]
 struct StreamHeader {
     size: u32,
@@ -490,6 +495,7 @@ struct StreamHeader {
     data_used: u32,
     data: *mut c_void,
     options_flags: u32,
+    #[cfg(target_pointer_width = "64")]
     reserved: u32,
 }
 
@@ -513,6 +519,7 @@ impl Read {
             data_used: 0,
             data: data.as_mut_ptr().cast(),
             options_flags: 0,
+            #[cfg(target_pointer_width = "64")]
             reserved: 0,
         });
         let event = Event::new()?;

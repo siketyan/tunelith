@@ -38,6 +38,7 @@ windows-sys = { version = "0.61", optional = true, features = [
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Foundation",
     "Win32_Media_KernelStreaming",
+    "Win32_Security",
     "Win32_Storage_FileSystem",
     "Win32_System_IO",
     "Win32_System_Registry",
