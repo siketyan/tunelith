@@ -1,5 +1,7 @@
 # Tunelith
 
+English | [日本語](README.ja.md)
+
 A low-level, cross-platform abstraction over tuners for the Japanese digital
 broadcasting systems: ISDB-T, ISDB-S and ISDB-S3 (4K/8K), written in Rust.
 
@@ -9,6 +11,20 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 > [!WARNING]
 > Tunelith is at an early stage. The API and the command line will change.
+
+## Features
+
+- **Cross-platform**: Linux, Windows, macOS, and Chromium browsers through
+  WebUSB.
+- **Low-level**: the program says what to receive, by system, frequency and
+  stream id, and Tunelith tunes to exactly that; no channel list in between.
+- **ISDB-S3**: 4K/8K broadcasts, as TLV.
+- **User space**: the USB tuners are driven over USB from user space, with no
+  kernel module to build.
+- **Shared tuners**: tunelithd shares a tuner among the programs receiving the
+  same, and a slow one loses data rather than holding the others up.
+- **BonDriver compatible**: [BonDriver_Tunelith](#bondriver_tunelith) lets
+  TVTest, EDCB and the like receive through tunelithd, on Windows and Linux.
 
 ## Device support
 
