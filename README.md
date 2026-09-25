@@ -53,6 +53,7 @@ of eight tuners, powered together.
 | [`tunelith`](crates/tunelith) | The client of tunelithd, for programs using the tuners | MIT OR Apache-2.0 |
 | `tunelith-driver-pt4k` | PT4K (TBS6812) on top of the generic DVB driver | MIT OR Apache-2.0 |
 | `tunelith-driver-px4` | The PLEX / e-better / Digibest USB tuners, ported from px4_drv | GPL-2.0-only |
+| `tunelith-bondriver` | BonDriver_Tunelith, a BonDriver receiving through tunelithd | MIT OR Apache-2.0 |
 | `tunelith-cli` | The `tunelith` command and `tunelithd`, the daemon sharing the tuners among programs | GPL-2.0-only |
 
 `tunelith-driver-px4` is a port of [px4_drv](https://github.com/tsukumijima/px4_drv)
@@ -182,6 +183,45 @@ The stream is MPEG-2 TS for ISDB-T and ISDB-S, and TLV for ISDB-S3.
 A program receives through tunelithd with the [`tunelith`](crates/tunelith)
 crate; see its README and [API documentation](https://siketyan.github.io/tunelith/tunelith/)
 to get started.
+
+### BonDriver_Tunelith
+
+BonDriver_Tunelith is a BonDriver (IBonDriver2) for TVTest, EDCB and the like,
+receiving through tunelithd. Build it with `cargo build --release -p
+tunelith-bondriver`, which makes `BonDriver_Tunelith.dll` on Windows (x64) and
+`libBonDriver_Tunelith.so` on Linux.
+
+Tunelith has no channel list, so the tuning spaces and channels are in a TOML
+file beside the library, of the same name (`BonDriver_Tunelith.toml` beside
+`BonDriver_Tunelith.dll`):
+
+```toml
+# The socket of tunelithd; that of the user's or the system's if omitted.
+# socket = '\\.\pipe\tunelith'
+# Powers the LNB of the antenna.
+lnb = false
+
+[[space]]
+name = "UHF"
+system = "isdb-t"
+channel = [
+  { name = "13ch", frequency = 473143 },
+  { name = "14ch", frequency = 479143 },
+]
+
+[[space]]
+name = "BS"
+system = "isdb-s"
+channel = [
+  { name = "BS01/TS0", frequency = 11727480, stream_id = 0x4010 },
+]
+```
+
+A channel takes the same as `tunelith tune`: `frequency` in kHz, `stream_id`
+for a satellite, and `polarization`. A copy of the library under another
+name, with its own file, makes another list. The C/N stands for the signal
+level. On Linux it goes into hosts such as BonDriverProxy_Linux, and links the
+C++ runtime for their `dynamic_cast`.
 
 ## Not in scope
 

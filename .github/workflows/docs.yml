@@ -34,7 +34,7 @@ jobs:
       # The libraries only: the binaries of tunelith-cli collide with the
       # tunelith crate.
       - name: Build docs
-        run: cargo doc --no-deps --workspace --exclude tunelith-cli
+        run: cargo doc --no-deps --workspace --exclude tunelith-cli --exclude tunelith-bondriver
         env:
           RUSTDOCFLAGS: -D warnings
       - name: Add the index page
