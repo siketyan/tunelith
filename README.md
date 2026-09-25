@@ -12,19 +12,22 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 ## Device support
 
-| Device | Driver | ISDB-T | ISDB-S | ISDB-S3 |
-|---|---|:-:|:-:|:-:|
-| PT4K (TBS6812) | `tunelith-driver-pt4k` (Linux DVB) | ✅ | ✅ | ✅[^left] |
-| e-better DTV02A-5TS-P | `tunelith-driver-px4` (USB) | ✅ | ✅ | — |
-| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
-| Digibest ISDB6014 V2.0 (4TS) | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
-| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
-| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
-| PLEX PX-M1UR | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
-| PLEX PX-S1UR | `tunelith-driver-px4` (USB) | ✅[^untested] | — | — |
-| Digibest ISDB2056 / ISDB2056N | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
-| Digibest ISDBT2071 | `tunelith-driver-px4` (USB) | ✅[^untested] | — | — |
-| Other ISDB tuners with a Linux DVB driver | generic DVB in `tunelith-core` | ✅[^generic] | ✅[^generic] | — |
+| Device | Systems | Driver | Linux | Windows | macOS | Browser (WebUSB) |
+|---|---|---|:-:|:-:|:-:|:-:|
+| PT4K (TBS6812) | T / S / S3[^left] | `tunelith-driver-pt4k` | ✅ | 🚧 | — | — |
+| e-better DTV02A-5TS-P | T / S | `tunelith-driver-px4` | ✅ | 🚧 | 🚧 | 🚧 |
+| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| Digibest ISDB6014 V2.0 (4TS) | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| PLEX PX-M1UR | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| PLEX PX-S1UR | T | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| Digibest ISDB2056 / ISDB2056N | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| Digibest ISDBT2071 | T | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| Other ISDB tuners with a Linux DVB driver | as the driver | generic DVB in `tunelith-core` | ✅[^generic] | — | — | — |
+
+✅ supported, 🚧 planned, — not planned. Systems: T for ISDB-T, S for ISDB-S,
+S3 for ISDB-S3.
 
 [^left]: Tested with right-hand circular 4K broadcasts only; a left-hand one
     (NHK BS8K) could not be received with the antenna at hand, by any tool.
@@ -33,9 +36,10 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 [^generic]: Whatever the kernel driver supports, taken as it is. Model-specific
     handling goes in a driver of its own.
 
-Every device has been tested on Linux only so far. The USB driver runs in user
-space over [nusb](https://github.com/kevinmehall/nusb), so Windows and macOS are
-within reach but untested.
+The USB driver runs in user space over [nusb](https://github.com/kevinmehall/nusb),
+which also works on Windows (WinUSB), macOS and in Chromium browsers (WebUSB);
+Tunelith does not build for them yet. On Windows, the PT4K is to go through
+BDA.
 
 A PX-Q model is two boards on one card; Tunelith joins them into one device
 of eight tuners, powered together.
