@@ -17,6 +17,7 @@ changelog_path = "./CHANGELOG.md"
 changelog_include = [
     "tunelith",
     "tunelith-core",
+    "tunelith-driver-mock",
     "tunelith-driver-pt4k",
     "tunelith-driver-px4",
     "tunelith-wasm",
@@ -45,4 +46,8 @@ version_group = "tunelith"
 
 [[package]]
 name = "tunelith-wasm"
+version_group = "tunelith"
+
+[[package]]
+name = "tunelith-driver-mock"
 version_group = "tunelith"
