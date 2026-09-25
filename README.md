@@ -12,25 +12,25 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 ## Device support
 
-| Device | Systems | Driver | Linux | Windows | macOS | Browser (WebUSB) |
-|---|---|---|:-:|:-:|:-:|:-:|
-| PT4K (TBS6812) | T / S / S3[^left] | `tunelith-driver-pt4k` | ✅ | 🚧 | — | — |
-| e-better DTV02A-5TS-P | T / S | `tunelith-driver-px4` | ✅ | 🚧 | 🚧 | 🚧 |
-| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| Digibest ISDB6014 V2.0 (4TS) | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| PLEX PX-M1UR | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| PLEX PX-S1UR | T | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| Digibest ISDB2056 / ISDB2056N | T / S | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| Digibest ISDBT2071 | T | `tunelith-driver-px4` | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| Other ISDB tuners with a Linux DVB driver | as the driver | generic DVB in `tunelith-core` | ✅[^generic] | — | — | — |
+| Device | Linux | Windows | macOS | Browser (WebUSB) |
+|---|:-:|:-:|:-:|:-:|
+| PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
+| e-better DTV02A-5TS-P | ✅ | 🚧 | 🚧 | 🚧 |
+| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| Digibest ISDB6014 V2.0 (4TS) | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| PLEX PX-M1UR | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| PLEX PX-S1UR | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| Digibest ISDB2056 / ISDB2056N | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| Digibest ISDBT2071 | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| Other ISDB tuners with a Linux DVB driver | ✅[^generic] | — | — | — |
 
-✅ supported, 🚧 planned, — not planned. Systems: T for ISDB-T, S for ISDB-S,
-S3 for ISDB-S3.
+✅ supported, 🚧 planned, — not planned.
 
-[^left]: Tested with right-hand circular 4K broadcasts only; a left-hand one
-    (NHK BS8K) could not be received with the antenna at hand, by any tool.
+[^left]: ISDB-S3 is tested with right-hand circular 4K broadcasts only; a
+    left-hand one (NHK BS8K) could not be received with the antenna at hand,
+    by any tool.
 [^untested]: Ported from px4_drv along with the DTV02A-5TS-P, but not yet
     tested on the device itself. Reports are welcome.
 [^generic]: Whatever the kernel driver supports, taken as it is. Model-specific
