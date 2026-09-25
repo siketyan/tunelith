@@ -12,6 +12,7 @@ mod types;
 
 #[cfg(all(feature = "dvb", target_os = "linux"))]
 pub mod dvb;
+pub mod proto;
 #[cfg(feature = "usb")]
 pub mod usb;
 
