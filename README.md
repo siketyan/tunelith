@@ -14,16 +14,16 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 | Device | Linux | Windows | macOS | Browser (WebUSB) |
 |---|:-:|:-:|:-:|:-:|
-| PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
-| e-better DTV02A-5TS-P | ✅ | ✅[^os] | ✅[^os] | 🚧 |
-| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| Digibest ISDB6014 V2.0 (4TS) | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | PLEX PX-M1UR | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | PLEX PX-S1UR | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| Digibest ISDB6014 V2.0 (4TS) | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | Digibest ISDB2056 / ISDB2056N | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | Digibest ISDBT2071 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| e-better DTV02A-5TS-P | ✅ | ✅[^os] | ✅[^os] | 🚧 |
+| PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
 | Other ISDB tuners with a Linux DVB driver | ✅[^generic] | — | — | — |
 
 ✅ supported, 🚧 planned, — not planned.
