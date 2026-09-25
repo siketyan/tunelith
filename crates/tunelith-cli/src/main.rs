@@ -227,17 +227,25 @@ async fn tune_direct(args: &TuneArgs) -> Result<()> {
     eprintln!("streaming {format:?}");
 
     let deadline = args.deadline();
-    let mut stdout = io::stdout().lock();
-    while let Some(chunk) = stream.next().await {
-        match stdout.write_all(&chunk?) {
-            Err(e) if e.kind() == io::ErrorKind::BrokenPipe => break,
-            result => result?,
+    let result: Result<()> = async {
+        let mut stdout = io::stdout().lock();
+        while let Some(chunk) = stream.next().await {
+            match stdout.write_all(&chunk?) {
+                Err(e) if e.kind() == io::ErrorKind::BrokenPipe => break,
+                result => result?,
+            }
+            if deadline.is_some_and(|d| Instant::now() >= d) {
+                break;
+            }
         }
-        if deadline.is_some_and(|d| Instant::now() >= d) {
-            break;
-        }
+        Ok(())
     }
-    Ok(())
+    .await;
+
+    // Waits for the tuner to go back, which the end of the process would cut.
+    drop(stream);
+    tuner.close().await;
+    result
 }
 
 #[tokio::main]
