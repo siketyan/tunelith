@@ -37,3 +37,16 @@ pub trait Tuner: Send {
     /// it was last tuned to.
     fn stream(&mut self) -> BoxFuture<'_, Result<(StreamFormat, ByteStream)>>;
 }
+
+/// An I2C bus, over which a bridge reaches the tuner and demodulator chips.
+pub trait I2c: Send {
+    fn write(&mut self, addr: u8, data: &[u8]) -> impl Future<Output = Result<()>> + Send;
+
+    /// Writes `data`, then reads `buf.len()` bytes back.
+    fn write_read(
+        &mut self,
+        addr: u8,
+        data: &[u8],
+        buf: &mut [u8],
+    ) -> impl Future<Output = Result<()>> + Send;
+}

@@ -9,11 +9,14 @@ description = "Core types and traits of Tunelith, a tuner abstraction for Japane
 [features]
 default = ["dvb"]
 dvb = ["dep:blocking", "dep:libc"]
+usb = ["dep:blocking", "dep:futures-timer", "dep:nusb"]
 
 [dependencies]
 futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
+blocking = { version = "1", optional = true }
 thiserror = "2"
+futures-timer = { version = "3", optional = true }
+nusb = { version = "0.2.7", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-blocking = { version = "1", optional = true }
 libc = { version = "0.2", optional = true }

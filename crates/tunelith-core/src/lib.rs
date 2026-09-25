@@ -12,10 +12,12 @@ mod types;
 
 #[cfg(all(feature = "dvb", target_os = "linux"))]
 pub mod dvb;
+#[cfg(feature = "usb")]
+pub mod usb;
 
 pub use error::{Error, Result};
 pub use registry::{Found, Registry};
-pub use traits::{ByteStream, Device, Driver, Tuner};
+pub use traits::{ByteStream, Device, Driver, I2c, Tuner};
 pub use types::{
     DeviceInfo, Polarization, Signal, StreamFormat, StreamId, System, TuneParams, TunerInfo,
 };
