@@ -27,7 +27,6 @@ use crate::tc90522::Tc90522;
 const I2C_BUS: u8 = 3;
 const GPIO_BACKEND_RESET: u8 = 3;
 const GPIO_BACKEND_POWER: u8 = 2;
-const GPIO_LNB_POWER: u8 = 11;
 
 const TC_INIT_ISDBT2071: &[(u8, u8)] = &[
     (0x04, 0x00),
@@ -95,10 +94,6 @@ pub async fn open(
     bridge.write_gpio(GPIO_BACKEND_RESET, true).await?;
     bridge.gpio_output(GPIO_BACKEND_POWER).await?;
     bridge.write_gpio(GPIO_BACKEND_POWER, false).await?;
-    if matches!(model, Model::M1ur | Model::Isdb2056 | Model::Isdb2056n) {
-        bridge.gpio_output(GPIO_LNB_POWER).await?;
-        bridge.write_gpio(GPIO_LNB_POWER, false).await?;
-    }
 
     let demod_s = match model {
         Model::Isdbt2071 => None,
@@ -355,18 +350,18 @@ impl Board for Single {
         })
     }
 
-    async fn start_capture(&mut self, _index: usize) -> Result<()> {
+    async fn set_capture(&mut self, _index: usize, on: bool) -> Result<()> {
         let mut i2c = self.bridge.i2c(I2C_BUS);
         match self.system {
-            Some(System::IsdbT) => self.demod_t.enable_ts_pins_t(&mut i2c, true).await,
+            Some(System::IsdbT) => self.demod_t.enable_ts_pins_t(&mut i2c, on).await,
             Some(_) => {
                 let demod_s = self
                     .demod_s
                     .as_ref()
                     .ok_or(Error::Unsupported(System::IsdbS))?;
-                demod_s.enable_ts_pins_s(&mut i2c, true).await
+                demod_s.enable_ts_pins_s(&mut i2c, on).await
             }
-            None => Err(Error::InvalidParams("the tuner has not been tuned")),
+            None => Ok(()),
         }
     }
 }

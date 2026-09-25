@@ -2,7 +2,8 @@
 //! Rafael Micro RT710 (and its successor RT720), the ISDB-S tuner, reached
 //! through the I2C relay of the demodulator in front of it.
 //!
-//! Ported from `rt710.c` of px4_drv, Copyright (c) 2018-2021 nns779.
+//! Ported from `rt710.c` of px4_drv, Copyright (c) 2018-2021 nns779, but
+//! for the RF signal strength, which px4_drv only logs.
 
 use std::time::Duration;
 

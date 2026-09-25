@@ -322,7 +322,8 @@ impl<T: UsbTransport> It930x<T> {
         queue.submit(1024);
         let result = with_timeout(queue.next_complete(), PSB_PURGE_TIMEOUT).await;
         drop(queue);
-        self.write_reg_mask(0xda1d, 0x00, 0x01).await?;
+        // px4_drv goes on whether this fails or not.
+        let _ = self.write_reg_mask(0xda1d, 0x00, 0x01).await;
         result??;
         Ok(())
     }

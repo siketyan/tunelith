@@ -273,7 +273,8 @@ impl Px4 {
 }
 
 /// Picks the stream with `tsid` out of the transponder, and waits for the
-/// demodulator to report it.
+/// demodulator to report it. px4_drv also takes a relative TS number below
+/// 12 and looks it up in the TMCC; a [`tunelith_core::StreamId`] never is one.
 pub async fn select_tsid(demod: &Tc90522, i2c: &mut impl I2c, tsid: u16) -> Result<()> {
     demod.set_tsid_s(i2c, tsid).await?;
     for _ in 0..100 {
@@ -287,23 +288,31 @@ pub async fn select_tsid(demod: &Tc90522, i2c: &mut impl I2c, tsid: u16) -> Resu
 
 /// Waits for the PLL of the R850 to lock.
 pub async fn wait_r850(r850: &mut R850, bus: &mut impl I2c) -> Result<()> {
+    // A failed read is tried again; the last one's error is what counts.
+    let mut last = Ok(false);
     for _ in 0..50 {
-        if r850.is_pll_locked(bus).await? {
+        last = r850.is_pll_locked(bus).await;
+        if let Ok(true) = last {
             return Ok(());
         }
         Delay::new(Duration::from_millis(10)).await;
     }
+    last?;
     Err(error("the R850 PLL did not lock"))
 }
 
 /// Waits for the PLL of the RT710 to lock.
 pub async fn wait_rt710(rt710: &mut Rt710, bus: &mut impl I2c) -> Result<()> {
+    // A failed read is tried again; the last one's error is what counts.
+    let mut last = Ok(false);
     for _ in 0..50 {
-        if rt710.is_pll_locked(bus).await? {
+        last = rt710.is_pll_locked(bus).await;
+        if let Ok(true) = last {
             return Ok(());
         }
         Delay::new(Duration::from_millis(10)).await;
     }
+    last?;
     Err(error("the RT710 PLL did not lock"))
 }
 
@@ -423,13 +432,13 @@ impl Board for Px4 {
         half.lnb.set(&mut half.bridge, i, on).await
     }
 
-    async fn start_capture(&mut self, index: usize) -> Result<()> {
+    async fn set_capture(&mut self, index: usize, on: bool) -> Result<()> {
         let (half, i) = self.half(index);
         let chip = &half.chips[i];
         let mut i2c = half.bridge.i2c(2);
         match chip.tuner {
-            Tuner::T(_) => chip.demod.enable_ts_pins_t(&mut i2c, true).await,
-            Tuner::S(_) => chip.demod.enable_ts_pins_s(&mut i2c, true).await,
+            Tuner::T(_) => chip.demod.enable_ts_pins_t(&mut i2c, on).await,
+            Tuner::S(_) => chip.demod.enable_ts_pins_s(&mut i2c, on).await,
         }
     }
 }

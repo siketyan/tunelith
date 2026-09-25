@@ -9,7 +9,7 @@ use std::future::Future;
 use std::io;
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use futures::executor::block_on;
 use futures::future::BoxFuture;
@@ -30,9 +30,9 @@ pub type Bridge = It930x<NusbTransport>;
 /// How long to wait for the TS to lock, in polls 10 ms apart.
 const LOCK_POLLS: u32 = 300;
 /// The demodulators report a lock before the demodulation settles, which
-/// breaks the first packets of an ISDB-T stream; px4_drv waits this long from
-/// the tuning before giving the stream out.
-const ISDB_T_SETTLE: Duration = Duration::from_millis(350);
+/// breaks the first packets of an ISDB-T stream; px4_drv waits after a lock
+/// found within this many polls, 10 ms for each poll short of it.
+const ISDB_T_SETTLE_POLLS: u32 = 34;
 
 pub enum Lock {
     Locked,
@@ -83,8 +83,9 @@ pub trait Board: Send + 'static {
         async { Err(io::Error::from(io::ErrorKind::Unsupported).into()) }
     }
 
-    /// Lets the TS of a tuner out to the bridge.
-    fn start_capture(&mut self, _index: usize) -> impl Future<Output = Result<()>> + Send {
+    /// Lets the TS of a tuner out to the bridge, or stops it before the
+    /// tuner is closed.
+    fn set_capture(&mut self, _index: usize, _on: bool) -> impl Future<Output = Result<()>> + Send {
         async { Ok(()) }
     }
 }
@@ -181,7 +182,6 @@ impl<B: Board> BoardTuner<B> {
         }
 
         self.system = None;
-        let started = Instant::now();
         self.shared
             .state
             .lock()
@@ -190,23 +190,28 @@ impl<B: Board> BoardTuner<B> {
             .tune(self.index, &params)
             .await?;
 
-        let mut locked = false;
-        for _ in 0..LOCK_POLLS {
+        // A failed poll counts as no lock yet, as in px4_drv.
+        let mut polls = None;
+        for poll in 0..LOCK_POLLS {
             let lock = {
                 let mut state = self.shared.state.lock().await;
-                state.board.lock(self.index, params.system).await?
+                state.board.lock(self.index, params.system).await
             };
             match lock {
-                Lock::Locked => {
-                    locked = true;
+                Ok(Lock::Locked) => {
+                    polls = Some(poll);
                     break;
                 }
-                Lock::Failed => break,
-                Lock::Waiting => Delay::new(Duration::from_millis(10)).await,
+                Ok(Lock::Failed) => break,
+                Ok(Lock::Waiting) | Err(_) => Delay::new(Duration::from_millis(10)).await,
             }
         }
-        if !locked {
+        let Some(polls) = polls else {
             return Err(Error::NoLock);
+        };
+        if params.system == System::IsdbT && polls < ISDB_T_SETTLE_POLLS {
+            let ms = u64::from(ISDB_T_SETTLE_POLLS - polls) * 10;
+            Delay::new(Duration::from_millis(ms)).await;
         }
 
         self.shared
@@ -217,11 +222,6 @@ impl<B: Board> BoardTuner<B> {
             .select(self.index, &params)
             .await?;
 
-        if params.system == System::IsdbT
-            && let Some(rest) = ISDB_T_SETTLE.checked_sub(started.elapsed())
-        {
-            Delay::new(rest).await;
-        }
         self.system = Some(params.system);
         Ok(())
     }
@@ -252,7 +252,7 @@ impl<B: Board> BoardTuner<B> {
             if start {
                 state.board.bridge(bridge).purge_psb().await?;
             }
-            state.board.start_capture(self.index).await?;
+            state.board.set_capture(self.index, true).await?;
             if start {
                 hub.start(state.board.bridge(bridge).usb().bulk_in_queue(EP_STREAM)?);
             }
@@ -301,6 +301,7 @@ impl<B: Board> Drop for BoardTuner<B> {
                 let mut state = shared.state.lock().await;
                 let (bridge, slot) = state.board.source(index);
                 shared.hubs[bridge].detach(slot);
+                let _ = state.board.set_capture(index, false).await;
                 let _ = state.board.set_lnb(index, false).await;
                 state.board.close(index).await;
                 state.opened[index] = false;
