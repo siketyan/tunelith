@@ -49,6 +49,9 @@ Rust (workspace of `crates/*`, edition 2024):
   - `tunelithd` (`src/bin/tunelithd/`), the daemon: opens every device at start, shares a tuner among the clients
     asking for the same `TuneParams`, otherwise takes the first free one; each client reads through a bounded
     channel, losing data rather than holding the others up (`DropEvent`). `listener.rs` is where clients connect.
+- `packaging/` — the systemd units running tunelithd for the system (`DynamicUser`, the `video` group) or for a user
+  (on `$XDG_RUNTIME_DIR/tunelith/`, which the client looks for first), and the udev rule opening the USB tuners to
+  the `video` group and the seat's user; shipped in the release archives.
 
 Frequencies are in kHz. A satellite frequency is the downlink one, before the LNB (`TuneParams::if_frequency_khz`
 converts it); a `StreamId` is never a relative TS number.

@@ -83,10 +83,12 @@ If px4_drv is installed, the file is already in `/lib/firmware/`.
 ### Permissions (Linux)
 
 The USB tuners are driven through usbfs, which needs write access to the
-device node. For instance, in `/etc/udev/rules.d/90-tunelith.rules`:
+device node. [`packaging/udev/90-tunelith.rules`](packaging/udev/90-tunelith.rules)
+gives it to the `video` group and to the user logged in at the seat:
 
-```
-SUBSYSTEM=="usb", ATTR{idVendor}=="0511", MODE="0664", GROUP="video"
+```shell
+sudo install -m644 packaging/udev/90-tunelith.rules /etc/udev/rules.d/
+sudo udevadm control --reload && sudo udevadm trigger
 ```
 
 If the px4_drv kernel module is loaded, Tunelith takes the device from it when
@@ -107,10 +109,35 @@ tunelithd
 ```
 
 It listens on `/run/tunelith/tunelithd.sock` (on Windows, the named pipe
-`\\.\pipe\tunelith`), or where `--socket` or
-`TUNELITH_SOCKET` says, and lets the members of the `video` group use the
-tuners, or of the group `--socket-group` names. Run as a user who cannot write
-to `/run`, it needs `--socket` to point elsewhere, and so do its clients.
+`\\.\pipe\tunelith`), or where `--socket` or `TUNELITH_SOCKET` says, and
+lets the members of the `video` group use the tuners, or of the group
+`--socket-group` names.
+
+On Linux, systemd runs it either for the whole system or for one user; the
+units are in [`packaging/systemd`](packaging/systemd), and in the release
+archives.
+
+- **System**: a user of its own runs it, reaching the tuners and sharing them
+  through the `video` group.
+
+  ```shell
+  sudo install -m644 packaging/systemd/system/tunelithd.service /etc/systemd/system/
+  sudo systemctl enable --now tunelithd
+  ```
+
+- **User**: it runs as the user, who alone may use it, on
+  `$XDG_RUNTIME_DIR/tunelith/tunelithd.sock`. The `tunelith` command looks for
+  this socket before that of the system.
+
+  ```shell
+  install -Dm644 packaging/systemd/user/tunelithd.service ~/.config/systemd/user/tunelithd.service
+  systemctl --user enable --now tunelithd
+  ```
+
+Both look `tunelithd` up in `/usr/local/bin`, `/usr/bin` and the like;
+`systemctl edit tunelithd` (with `--user` for the user's) points them at one
+elsewhere, such as `~/.cargo/bin`. The USB tuners need the udev rule above in
+either case.
 
 ### The `tunelith` command
 
@@ -146,7 +173,7 @@ tunelith tune --system isdb-s3 --freq 12034360 --stream-id 0xB110 > out.tlv
 | `--lnb` | Powers the LNB of the antenna |
 | `--duration` | Stops after this many seconds |
 | `--direct` | Opens the devices directly rather than through tunelithd |
-| `--socket` | The socket of tunelithd (or `TUNELITH_SOCKET`) |
+| `--socket` | The socket of tunelithd (or `TUNELITH_SOCKET`); that of the user's tunelithd if there is one, or else the system's |
 
 The stream is MPEG-2 TS for ISDB-T and ISDB-S, and TLV for ISDB-S3.
 
