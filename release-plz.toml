@@ -1,0 +1,48 @@
+# Every crate shares one version and is released together, from the release
+# pull request alone. tunelith-cli carries the tag and the GitHub release
+# (a draft, which dist fills in with the artifacts and publishes), and the one
+# changelog of the project.
+
+[workspace]
+release_always = false
+changelog_update = false
+git_tag_enable = false
+git_release_enable = false
+
+[[package]]
+name = "tunelith-cli"
+version_group = "tunelith"
+changelog_update = true
+changelog_path = "./CHANGELOG.md"
+changelog_include = [
+    "tunelith",
+    "tunelith-core",
+    "tunelith-driver-pt4k",
+    "tunelith-driver-px4",
+    "tunelithd",
+]
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+git_release_enable = true
+git_release_name = "v{{ version }}"
+git_release_draft = true
+
+[[package]]
+name = "tunelith"
+version_group = "tunelith"
+
+[[package]]
+name = "tunelith-core"
+version_group = "tunelith"
+
+[[package]]
+name = "tunelith-driver-pt4k"
+version_group = "tunelith"
+
+[[package]]
+name = "tunelith-driver-px4"
+version_group = "tunelith"
+
+[[package]]
+name = "tunelithd"
+version_group = "tunelith"
