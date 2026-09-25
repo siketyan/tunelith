@@ -11,9 +11,11 @@
 //! `example/` has a page that records from a tuner, and how to build it.
 #![cfg(target_arch = "wasm32")]
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use futures::StreamExt;
+use futures::future::{AbortHandle, Abortable};
 use futures::lock::Mutex;
 use tunelith_core::{ByteStream, Driver, StreamId, TuneParams};
 use wasm_bindgen::prelude::*;
@@ -68,29 +70,24 @@ impl Device {
     pub async fn open_tuner(&self, index: usize) -> Result<Tuner, JsError> {
         let device = self.0.clone();
         let tuner = device.open_tuner(index).await?;
-        Ok(Tuner(Rc::new(Mutex::new(Inner {
-            tuner: Some(tuner),
-            stream: None,
-        }))))
-    }
-}
-
-struct Inner {
-    /// `None` once closed.
-    tuner: Option<Box<dyn tunelith_core::Tuner>>,
-    stream: Option<ByteStream>,
-}
-
-impl Inner {
-    fn tuner(&mut self) -> Result<&mut Box<dyn tunelith_core::Tuner>, JsError> {
-        self.tuner
-            .as_mut()
-            .ok_or_else(|| JsError::new("the tuner is closed"))
+        Ok(Tuner {
+            tuner: Mutex::new(Some(tuner)),
+            stream: RefCell::default(),
+            reading: RefCell::default(),
+        })
     }
 }
 
 #[wasm_bindgen]
-pub struct Tuner(Rc<Mutex<Inner>>);
+pub struct Tuner {
+    /// `None` once closed.
+    tuner: Mutex<Option<Box<dyn tunelith_core::Tuner>>>,
+    /// Out of `tuner`'s lock, so that a read waiting on a stalled stream does
+    /// not hold up a `close` or a `tune`.
+    stream: RefCell<Option<ByteStream>>,
+    /// Aborts the read in progress, which `close` and `tune` end.
+    reading: RefCell<Option<AbortHandle>>,
+}
 
 #[wasm_bindgen]
 pub struct Signal {
@@ -129,14 +126,13 @@ impl Tuner {
         };
         params.validate()?;
 
-        let mut inner = self.0.lock().await;
-        inner.stream = None;
-        inner.tuner()?.tune(params).await?;
+        self.end_stream();
+        tuner(&mut *self.tuner.lock().await)?.tune(params).await?;
         Ok(())
     }
 
     pub async fn signal(&self) -> Result<Signal, JsError> {
-        let signal = self.0.lock().await.tuner()?.signal().await?;
+        let signal = tuner(&mut *self.tuner.lock().await)?.signal().await?;
         Ok(Signal {
             locked: signal.locked,
             cnr_db: signal.cnr_db,
@@ -146,28 +142,57 @@ impl Tuner {
     /// Powers the LNB of a satellite antenna on or off.
     #[wasm_bindgen(js_name = setLnb)]
     pub async fn set_lnb(&self, on: bool) -> Result<(), JsError> {
-        self.0.lock().await.tuner()?.set_lnb(on).await?;
+        tuner(&mut *self.tuner.lock().await)?.set_lnb(on).await?;
         Ok(())
     }
 
     /// The next bytes received, in the format of the system tuned to: TS
-    /// packets, or TLV ones for ISDB-S3. `undefined` once the stream ends.
+    /// packets, or TLV ones for ISDB-S3. `undefined` once the stream ends,
+    /// closing or tuning the tuner ending it too.
     pub async fn read(&self) -> Result<Option<Vec<u8>>, JsError> {
-        let mut inner = self.0.lock().await;
-        if inner.stream.is_none() {
-            let (_, stream) = inner.tuner()?.stream().await?;
-            inner.stream = Some(stream);
+        let (handle, registration) = AbortHandle::new_pair();
+        if self.reading.borrow().is_some() {
+            return Err(JsError::new("a read is in progress"));
         }
-        let chunk = inner.stream.as_mut().unwrap().next().await;
-        Ok(chunk.transpose()?)
+        *self.reading.borrow_mut() = Some(handle);
+        let chunk = Abortable::new(self.next_chunk(), registration).await;
+        self.reading.take();
+        chunk.unwrap_or(Ok(None))
     }
 
     /// Lets go of the tuner, returning once another may open it.
     pub async fn close(&self) {
-        let mut inner = self.0.lock().await;
-        inner.stream = None;
-        if let Some(tuner) = inner.tuner.take() {
+        self.end_stream();
+        if let Some(tuner) = self.tuner.lock().await.take() {
             tuner.close().await;
         }
     }
+}
+
+impl Tuner {
+    async fn next_chunk(&self) -> Result<Option<Vec<u8>>, JsError> {
+        let taken = self.stream.take();
+        let mut stream = match taken {
+            Some(stream) => stream,
+            None => tuner(&mut *self.tuner.lock().await)?.stream().await?.1,
+        };
+        let chunk = stream.next().await;
+        *self.stream.borrow_mut() = Some(stream);
+        Ok(chunk.transpose()?)
+    }
+
+    fn end_stream(&self) {
+        if let Some(reading) = self.reading.take() {
+            reading.abort();
+        }
+        self.stream.take();
+    }
+}
+
+fn tuner(
+    tuner: &mut Option<Box<dyn tunelith_core::Tuner>>,
+) -> Result<&mut Box<dyn tunelith_core::Tuner>, JsError> {
+    tuner
+        .as_mut()
+        .ok_or_else(|| JsError::new("the tuner is closed"))
 }
