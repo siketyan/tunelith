@@ -895,6 +895,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tunelith-wasm"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "tunelith-core",
+ "tunelith-driver-px4",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
