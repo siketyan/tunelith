@@ -19,9 +19,9 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 | PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | PLEX PX-M1UR | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | PLEX PX-S1UR | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| Digibest ISDB6014 V2.0 (4TS) | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| Digibest ISDB2056 / ISDB2056N | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| Digibest ISDBT2071 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| Digibest ISDB6014 V2.0 (4TS) / e-better DTV02A-4TS-P | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| Digibest ISDBT2071 / e-better DTV03A-1TU | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | e-better DTV02A-5TS-P | ✅ | ✅[^os] | ✅[^os] | 🚧 |
 | PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
 | Other ISDB tuners with a Linux DVB driver | ✅[^generic] | — | — | — |
