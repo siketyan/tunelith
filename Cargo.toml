@@ -8,11 +8,11 @@ rust-version = "1.98"
 repository = "https://github.com/siketyan/tunelith"
 
 [workspace.dependencies]
-tunelith = { path = "crates/tunelith", version = "0.2.0" }
-tunelith-core = { path = "crates/tunelith-core", version = "0.2.0", default-features = false }
-tunelith-driver-mock = { path = "crates/tunelith-driver-mock", version = "0.2.0" }
-tunelith-driver-pt4k = { path = "crates/tunelith-driver-pt4k", version = "0.2.0" }
-tunelith-driver-px4 = { path = "crates/tunelith-driver-px4", version = "0.2.0" }
+tunelith = { path = "crates/tunelith", version = "0.2.1" }
+tunelith-core = { path = "crates/tunelith-core", version = "0.2.1", default-features = false }
+tunelith-driver-mock = { path = "crates/tunelith-driver-mock", version = "0.2.1" }
+tunelith-driver-pt4k = { path = "crates/tunelith-driver-pt4k", version = "0.2.1" }
+tunelith-driver-px4 = { path = "crates/tunelith-driver-px4", version = "0.2.1" }
 
 # The profile that 'dist' will build with
 [profile.dist]

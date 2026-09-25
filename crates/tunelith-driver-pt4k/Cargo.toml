@@ -1,6 +1,6 @@
 [package]
 name = "tunelith-driver-pt4k"
-version = "0.2.0"
+version = "0.2.1"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
