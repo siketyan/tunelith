@@ -3,12 +3,16 @@ use crate::{Error, Result};
 /// A broadcasting system.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum System {
+    /// Terrestrial digital broadcasting.
     IsdbT,
+    /// BS / CS110 digital broadcasting (2K).
     IsdbS,
+    /// Advanced BS / CS110 digital broadcasting (4K/8K).
     IsdbS3,
 }
 
 impl System {
+    /// Whether the system is received through a satellite dish and an LNB.
     pub fn is_satellite(self) -> bool {
         !matches!(self, Self::IsdbT)
     }
@@ -49,6 +53,7 @@ const LO_RIGHT_KHZ: u32 = 10_678_000;
 const LO_LEFT_KHZ: u32 = 9_505_000;
 
 impl TuneParams {
+    /// Checks that a satellite system has a stream id and ISDB-T has none.
     pub fn validate(&self) -> Result<()> {
         match (self.system.is_satellite(), self.stream_id) {
             (true, None) => Err(Error::InvalidParams("a satellite stream needs a stream id")),
@@ -101,25 +106,31 @@ pub enum StreamFormat {
     Tlv,
 }
 
+/// The signal a tuner receives.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Signal {
+    /// Whether the tuner is locked on the signal.
     pub locked: bool,
     /// The carrier-to-noise ratio in dB, if the tuner reports one.
     pub cnr_db: Option<f64>,
 }
 
+/// A device, holding one or more tuners.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DeviceInfo {
     /// Stable across reboots: a serial number, or the path of the device on
     /// its bus when it has none.
     pub id: String,
+    /// The model of the device, for people to read.
     pub name: String,
 }
 
+/// A tuner of a device.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TunerInfo {
     /// The id of the device, then `#` and the index of the tuner.
     pub id: String,
+    /// The systems the tuner receives.
     pub systems: Vec<System>,
 }
 
