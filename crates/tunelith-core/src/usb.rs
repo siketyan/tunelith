@@ -4,11 +4,14 @@
 
 use std::future::Future;
 use std::io;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures::FutureExt;
 use futures::future::{Either, select};
 use futures_timer::Delay;
+#[cfg(not(target_arch = "wasm32"))]
 use nusb::MaybeFuture;
 use nusb::transfer::{Bulk, In, Out};
 
@@ -58,12 +61,31 @@ pub async fn with_timeout<T>(future: impl Future<Output = T>, timeout: Duration)
     }
 }
 
+/// Holds a value of nusb, `Send` and `Sync` in WebUSB too, where it holds JS
+/// objects: wasm32 without atomics has the one thread to run them on.
+#[derive(Clone, Debug)]
+struct Local<T>(T);
+
+#[cfg(all(target_arch = "wasm32", not(target_feature = "atomics")))]
+unsafe impl<T> Send for Local<T> {}
+#[cfg(all(target_arch = "wasm32", not(target_feature = "atomics")))]
+unsafe impl<T> Sync for Local<T> {}
+
+impl<F: Future> Future for Local<F> {
+    type Output = F::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<F::Output> {
+        // SAFETY: the future is never moved out of `Local`.
+        unsafe { self.map_unchecked_mut(|local| &mut local.0) }.poll(cx)
+    }
+}
+
 /// An interface claimed through nusb.
-pub struct NusbTransport(nusb::Interface);
+pub struct NusbTransport(Local<nusb::Interface>);
 
 impl NusbTransport {
     pub fn new(interface: nusb::Interface) -> Self {
-        Self(interface)
+        Self(Local(interface))
     }
 }
 
@@ -76,36 +98,37 @@ impl UsbTransport for NusbTransport {
         data: Vec<u8>,
         timeout: Duration,
     ) -> impl Future<Output = io::Result<()>> + Send {
-        let ep = self.0.endpoint::<Bulk, Out>(ep);
-        async move {
+        let ep = self.0.0.endpoint::<Bulk, Out>(ep);
+        Local(async move {
             let mut ep = ep?;
             ep.submit(data.into());
             let completion = with_timeout(ep.next_complete(), timeout).await?;
             Ok(completion.status?)
-        }
+        })
     }
 
     fn bulk_in_queue(&self, ep: u8) -> io::Result<NusbBulkIn> {
-        Ok(NusbBulkIn(self.0.endpoint::<Bulk, In>(ep)?))
+        Ok(NusbBulkIn(Local(self.0.0.endpoint::<Bulk, In>(ep)?)))
     }
 }
 
-pub struct NusbBulkIn(nusb::Endpoint<Bulk, In>);
+pub struct NusbBulkIn(Local<nusb::Endpoint<Bulk, In>>);
 
 impl BulkIn for NusbBulkIn {
     fn submit(&mut self, len: usize) {
-        let packet = self.0.max_packet_size();
-        let buf = self.0.allocate(len.div_ceil(packet) * packet);
-        self.0.submit(buf);
+        let ep = &mut self.0.0;
+        let packet = ep.max_packet_size();
+        let buf = ep.allocate(len.div_ceil(packet) * packet);
+        ep.submit(buf);
     }
 
     fn next_complete(&mut self) -> impl Future<Output = io::Result<Vec<u8>>> + Send {
-        self.0.next_complete().map(|completion| {
+        Local(self.0.0.next_complete().map(|completion| {
             completion.status?;
             let mut data = completion.buffer.into_vec();
             data.truncate(completion.actual_len);
             Ok(data)
-        })
+        }))
     }
 }
 
@@ -115,23 +138,32 @@ pub struct UsbDeviceInfo {
     pub vendor_id: u16,
     pub product_id: u16,
     pub serial: Option<String>,
-    /// The bus and the chain of hub ports from it, `9-1.2` for instance.
+    /// The bus and the chain of hub ports from it, `9-1.2` for instance. WebUSB
+    /// tells neither, so there it is the place in the list of devices.
     pub port_path: String,
     /// `bcdUSB`, 0x0200 for USB 2.0.
     pub usb_version: u16,
-    inner: nusb::DeviceInfo,
+    inner: Local<nusb::DeviceInfo>,
 }
 
-// nusb blocks on the calls below unless it has a runtime of its own to await
-// them on, so they run on the thread pool of `blocking`.
+// Elsewhere than in WebUSB, nusb blocks on the calls below unless it has a
+// runtime of its own to await them on, so they run on the thread pool of
+// `blocking`.
 
 pub async fn list_devices() -> io::Result<Vec<UsbDeviceInfo>> {
+    #[cfg(target_arch = "wasm32")]
+    let devices = Local(async { nusb::list_devices().await }).await?;
+    #[cfg(not(target_arch = "wasm32"))]
     let devices = blocking::unblock(|| nusb::list_devices().wait()).await?;
     Ok(devices
-        .map(|d| UsbDeviceInfo {
+        .zip(0usize..)
+        .map(|(d, _i)| UsbDeviceInfo {
             vendor_id: d.vendor_id(),
             product_id: d.product_id(),
             serial: d.serial_number().map(str::to_owned),
+            #[cfg(target_arch = "wasm32")]
+            port_path: _i.to_string(),
+            #[cfg(not(target_arch = "wasm32"))]
             port_path: format!(
                 "{}-{}",
                 d.bus_id(),
@@ -142,7 +174,7 @@ pub async fn list_devices() -> io::Result<Vec<UsbDeviceInfo>> {
                     .join(".")
             ),
             usb_version: d.usb_version(),
-            inner: d,
+            inner: Local(d),
         })
         .collect())
 }
@@ -151,10 +183,19 @@ impl UsbDeviceInfo {
     /// Opens the device and claims the interface, taking it from a kernel
     /// driver bound to it.
     pub async fn open(&self, interface: u8) -> io::Result<NusbTransport> {
-        let info = self.inner.clone();
+        let info = self.inner.0.clone();
+        #[cfg(target_arch = "wasm32")]
+        return Local(async move {
+            let device = info.open().await?;
+            Ok(NusbTransport::new(
+                device.detach_and_claim_interface(interface).await?,
+            ))
+        })
+        .await;
+        #[cfg(not(target_arch = "wasm32"))]
         blocking::unblock(move || {
             let device = info.open().wait()?;
-            Ok(NusbTransport(
+            Ok(NusbTransport::new(
                 device.detach_and_claim_interface(interface).wait()?,
             ))
         })

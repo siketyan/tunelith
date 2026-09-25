@@ -1,0 +1,23 @@
+[package]
+name = "tunelith-wasm"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license = "GPL-2.0-only"
+description = "Tunelith in the browser, driving the PLEX PX4/PX-MLT series and their kin over WebUSB"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+futures = "0.3"
+tunelith-core = { workspace = true }
+tunelith-driver-px4 = { workspace = true }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+
+[package.metadata.docs.rs]
+targets = ["wasm32-unknown-unknown"]
+rustc-args = ["--cfg", "web_sys_unstable_apis"]
+rustdoc-args = ["--cfg", "web_sys_unstable_apis"]

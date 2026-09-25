@@ -19,6 +19,7 @@ changelog_include = [
     "tunelith-core",
     "tunelith-driver-pt4k",
     "tunelith-driver-px4",
+    "tunelith-wasm",
 ]
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
@@ -40,4 +41,8 @@ version_group = "tunelith"
 
 [[package]]
 name = "tunelith-driver-px4"
+version_group = "tunelith"
+
+[[package]]
+name = "tunelith-wasm"
 version_group = "tunelith"

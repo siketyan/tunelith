@@ -11,3 +11,7 @@ description = "Tunelith driver for the PLEX PX4/PX-MLT series and their kin, run
 futures = "0.3"
 futures-timer = "3"
 tunelith-core = { workspace = true, features = ["usb"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+futures-timer = { version = "3", features = ["wasm-bindgen"] }
+wasm-bindgen-futures = "0.4"

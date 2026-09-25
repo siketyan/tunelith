@@ -126,10 +126,30 @@ fn error(message: &str) -> Error {
     io::Error::other(message).into()
 }
 
-pub struct Px4Driver;
+/// Runs `future` apart from the caller: on a thread of its own, or in the
+/// browser as a task of its event loop.
+fn spawn(future: impl Future<Output = ()> + Send + 'static) {
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_futures::spawn_local(future);
+    #[cfg(not(target_arch = "wasm32"))]
+    std::thread::spawn(move || futures::executor::block_on(future));
+}
 
+pub struct Px4Driver {
+    firmware: Option<Vec<u8>>,
+}
+
+/// The driver, reading the firmware from where the user put it.
 pub fn driver() -> Px4Driver {
-    Px4Driver
+    Px4Driver { firmware: None }
+}
+
+/// The driver, loading `firmware` into the bridges: in the browser, where
+/// there is no file to read it from.
+pub fn driver_with_firmware(firmware: Vec<u8>) -> Px4Driver {
+    Px4Driver {
+        firmware: Some(firmware),
+    }
 }
 
 /// A device as the driver sees it: the USB devices of its bridges.
@@ -186,7 +206,10 @@ impl Driver for Px4Driver {
                 .into_iter()
                 .find(|f| f.info.id == info.id)
                 .ok_or_else(|| Error::NotFound(info.id.clone()))?;
-            let firmware = firmware()?;
+            let firmware = match &self.firmware {
+                Some(firmware) => firmware.clone(),
+                None => firmware()?,
+            };
             match model.kind {
                 Kind::PxMlt(layout) => pxmlt::open(&usbs[0], info, layout, &firmware).await,
                 Kind::Px4 { .. } => px4::open(&usbs, info, &firmware).await,

@@ -8,10 +8,8 @@
 use std::future::Future;
 use std::io;
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 
-use futures::executor::block_on;
 use futures::future::BoxFuture;
 use futures::lock::Mutex;
 use futures::{FutureExt, StreamExt};
@@ -305,9 +303,9 @@ impl<B: Board> Drop for BoardTuner<B> {
         }
         let shared = self.shared.clone();
         let index = self.index;
-        // Drop cannot wait, so the tuner is released on a thread of its own;
+        // Drop cannot wait, so the tuner is released apart from it;
         // `Tuner::close` is the way to know when it is.
-        thread::spawn(move || block_on(release(shared, index)));
+        crate::spawn(release(shared, index));
     }
 }
 

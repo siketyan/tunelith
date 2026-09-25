@@ -5,10 +5,8 @@
 //! px4_drv, Copyright (c) 2018-2021 nns779.
 
 use std::sync::{Arc, Mutex};
-use std::thread;
 
 use futures::channel::mpsc;
-use futures::executor::block_on;
 use tunelith_core::usb::BulkIn;
 
 use crate::it930x::XFER_SIZE;
@@ -64,7 +62,7 @@ impl Hub {
     /// Receives on `queue` until no tuner takes the stream any more.
     pub fn start(&self, queue: impl BulkIn) {
         let hub = self.clone();
-        thread::spawn(move || block_on(hub.receive(queue)));
+        crate::spawn(hub.receive(queue));
     }
 
     async fn receive(self, mut queue: impl BulkIn) {

@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+  Build the module into pkg/ and serve this directory, from the root of the
+  repository:
+
+    cargo build --release -p tunelith-wasm --target wasm32-unknown-unknown
+    wasm-bindgen --target web --out-dir crates/tunelith-wasm/example/pkg \
+      target/wasm32-unknown-unknown/release/tunelith_wasm.wasm
+    python3 -m http.server -d crates/tunelith-wasm/example
+
+  then open http://localhost:8000/ in a Chromium browser.
+-->
+<meta charset="utf-8">
+<title>tunelith-wasm</title>
+<h1>tunelith-wasm</h1>
+<p>
+  <!-- A PX-Q card is two USB devices, to be allowed one after the other. -->
+  <button id="allow">Allow a device</button>
+  <label>Firmware <input id="firmware" type="file"></label>
+  <button id="open">Open</button>
+</p>
+<form id="tune">
+  <label>Tuner <input id="tuner" type="number" min="0" value="0"></label>
+  <select id="system">
+    <option>ISDB-T</option>
+    <option>ISDB-S</option>
+    <option>ISDB-S3</option>
+  </select>
+  <label>Frequency <input id="frequency" type="number" required> kHz</label>
+  <label>Stream id <input id="stream-id" placeholder="0x4010"></label>
+  <select id="polarization">
+    <option value="right">Right</option>
+    <option value="left">Left</option>
+  </select>
+  <label><input id="lnb" type="checkbox"> LNB</label>
+  <label>For <input id="seconds" type="number" min="1" value="10"> s</label>
+  <button>Record</button>
+</form>
+<pre id="log"></pre>
+<script type="module" src="main.js"></script>

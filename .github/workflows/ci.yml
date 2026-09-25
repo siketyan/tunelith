@@ -53,6 +53,26 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --all-targets -- -D warnings
 
+  wasm:
+    name: Clippy (wasm32)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install --no-self-update
+          rustup target add wasm32-unknown-unknown
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Run Clippy
+        run: cargo clippy -p tunelith-wasm --all-targets --target wasm32-unknown-unknown -- -D warnings
+
   crates:
     name: Crates
     runs-on: ubuntu-latest

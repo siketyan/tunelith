@@ -14,15 +14,15 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 | Device | Linux | Windows | macOS | Browser (WebUSB) |
 |---|:-:|:-:|:-:|:-:|
-| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| PLEX PX-M1UR | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| PLEX PX-S1UR | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| Digibest ISDB6014 V2.0 (4TS) / e-better DTV02A-4TS-P | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| Digibest ISDBT2071 / e-better DTV03A-1TU | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
-| e-better DTV02A-5TS-P | ✅ | ✅[^os] | ✅[^os] | 🚧 |
+| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
+| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
+| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
+| PLEX PX-M1UR | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
+| PLEX PX-S1UR | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
+| Digibest ISDB6014 V2.0 (4TS) / e-better DTV02A-4TS-P | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
+| Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
+| Digibest ISDBT2071 / e-better DTV03A-1TU | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
+| e-better DTV02A-5TS-P | ✅ | ✅[^os] | ✅[^os] | ✅ |
 | PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
 | Other ISDB tuners with a Linux DVB driver | ✅[^generic] | — | — | — |
 
@@ -40,7 +40,7 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 The USB driver runs in user space over [nusb](https://github.com/kevinmehall/nusb),
 which works on Linux, Windows (WinUSB), macOS and in Chromium browsers
-(WebUSB). On Windows, the PT4K is to go through BDA.
+(WebUSB, through `tunelith-wasm`). On Windows, the PT4K is to go through BDA.
 
 A PX-Q model is two boards on one card; Tunelith joins them into one device
 of eight tuners, powered together.
