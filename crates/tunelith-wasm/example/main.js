@@ -7,15 +7,21 @@ const log = (line) => ($("log").textContent += `${line}\n`);
 await init();
 let device;
 
+// The page may reach only the devices the user allowed here, or a policy
+// allows.
+$("allow").onclick = async () => {
+  try {
+    const usb = await navigator.usb.requestDevice({ filters: [{ vendorId: VENDOR_ID }] });
+    log(`allowed ${usb.productName}`);
+  } catch (e) {
+    log(`error: ${e.message ?? e}`);
+  }
+};
+
 $("open").onclick = async () => {
   try {
     const file = $("firmware").files[0];
     if (!file) throw new Error("choose it930x-firmware.bin first");
-    // The page may reach only the devices the user picked, or a policy allows.
-    const devices = await navigator.usb.getDevices();
-    if (!devices.some((d) => d.vendorId === VENDOR_ID)) {
-      await navigator.usb.requestDevice({ filters: [{ vendorId: VENDOR_ID }] });
-    }
     device = await openDevice(new Uint8Array(await file.arrayBuffer()));
     log(`${device.name}, ${device.tunerCount} tuners`);
   } catch (e) {
