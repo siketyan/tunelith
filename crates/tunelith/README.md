@@ -58,6 +58,11 @@ async fn main() -> tunelith::Result<()> {
 A `StreamId` is never a relative TS number. A left-hand circular broadcast
 (some of ISDB-S3) takes `polarization: Some(Polarization::Left)`.
 
+`acquire` fails with `Error::Unsupported` if no tuner receives the system,
+`Error::NotFound` if the tuner asked for does not exist, `Error::NoLock` if
+there is no signal, and an error whose `is_busy()` is true if every tuner that
+could serve is in use.
+
 ### Reading the stream
 
 - Read steadily: tunelithd drops the bytes a client is too slow to take rather
