@@ -170,6 +170,43 @@ impl From<&SignalResponse> for crate::Signal {
     }
 }
 
+impl From<&crate::Error> for Error {
+    fn from(e: &crate::Error) -> Self {
+        use error::Code;
+        let (code, system) = match e {
+            e if e.is_busy() => (Code::CODE_BUSY, None),
+            crate::Error::Unsupported(system) => (Code::CODE_UNSUPPORTED, Some(*system)),
+            crate::Error::NotFound(_) => (Code::CODE_NOT_FOUND, None),
+            crate::Error::NoLock => (Code::CODE_NO_LOCK, None),
+            _ => (Code::CODE_UNSPECIFIED, None),
+        };
+        Self {
+            message: match e {
+                crate::Error::NotFound(what) => what.clone(),
+                e => e.to_string(),
+            },
+            code: EnumOrUnknown::new(code),
+            system: system.map(Into::into).unwrap_or_default(),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Error> for crate::Error {
+    fn from(e: Error) -> Self {
+        use error::Code;
+        match (e.code.enum_value(), system(e.system)) {
+            (Ok(Code::CODE_BUSY), _) => {
+                io::Error::new(io::ErrorKind::ResourceBusy, e.message).into()
+            }
+            (Ok(Code::CODE_UNSUPPORTED), Some(system)) => crate::Error::Unsupported(system),
+            (Ok(Code::CODE_NOT_FOUND), _) => crate::Error::NotFound(e.message),
+            (Ok(Code::CODE_NO_LOCK), _) => crate::Error::NoLock,
+            _ => io::Error::other(e.message).into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use futures::executor::block_on;
@@ -224,5 +261,24 @@ mod tests {
     fn rejects_large_frames() {
         let frame = ((MAX_FRAME + 1) as u32).to_be_bytes();
         assert!(block_on(read(&mut frame.as_slice())).is_err());
+    }
+
+    #[test]
+    fn errors_round_trip() {
+        let back = |e: crate::Error| crate::Error::from(Error::from(&e));
+        let busy = io::Error::new(io::ErrorKind::ResourceBusy, "busy");
+        assert!(back(busy.into()).is_busy());
+        assert!(matches!(
+            back(crate::Error::Unsupported(System::IsdbS3)),
+            crate::Error::Unsupported(System::IsdbS3)
+        ));
+        assert!(
+            matches!(back(crate::Error::NotFound("t0".into())), crate::Error::NotFound(t) if t == "t0")
+        );
+        assert!(matches!(back(crate::Error::NoLock), crate::Error::NoLock));
+        assert!(matches!(
+            back(io::Error::other("x").into()),
+            crate::Error::Io(_)
+        ));
     }
 }

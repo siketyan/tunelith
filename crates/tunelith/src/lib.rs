@@ -119,10 +119,6 @@ pub struct AcquireOptions {
     pub lnb: bool,
 }
 
-fn remote(message: String) -> Error {
-    io::Error::other(message).into()
-}
-
 fn closed() -> Error {
     io::Error::new(io::ErrorKind::BrokenPipe, "tunelithd closed the connection").into()
 }
@@ -179,7 +175,7 @@ async fn connect(path: &Path, role: Role) -> Result<Connection> {
         .and_then(|e| e.body)
     {
         Some(Body::Hello(hello)) if hello.version == proto::VERSION => Ok(stream),
-        Some(Body::Error(e)) => Err(remote(e.message)),
+        Some(Body::Error(e)) => Err(e.into()),
         _ => Err(unexpected()),
     }
 }
@@ -264,7 +260,7 @@ impl Client {
             .send(proto::envelope(id, body))
             .map_err(|_| closed())?;
         match rx.await.map_err(|_| closed())? {
-            Body::Error(e) => Err(remote(e.message)),
+            Body::Error(e) => Err(e.into()),
             body => Ok(body),
         }
     }

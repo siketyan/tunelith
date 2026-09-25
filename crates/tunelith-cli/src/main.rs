@@ -195,7 +195,7 @@ async fn open_tuner(id: Option<&str>, system: System) -> Result<Box<dyn Tuner>> 
                 Some(id) if id == info.id => return Ok(device.open_tuner(index).await?),
                 None if info.systems.contains(&system) => match device.open_tuner(index).await {
                     Ok(tuner) => return Ok(tuner),
-                    Err(tunelith_core::Error::Io(e)) if e.kind() == io::ErrorKind::ResourceBusy => {
+                    Err(e) if e.is_busy() => {
                         continue;
                     }
                     Err(e) => return Err(e.into()),

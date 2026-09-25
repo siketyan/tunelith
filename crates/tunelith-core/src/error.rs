@@ -24,3 +24,10 @@ pub enum Error {
 
 /// The result of Tunelith, failing with an [`Error`].
 pub type Result<T, E = Error> = std::result::Result<T, E>;
+
+impl Error {
+    /// Whether the tuner, or every tuner that could serve, is in use.
+    pub fn is_busy(&self) -> bool {
+        matches!(self, Error::Io(e) if e.kind() == io::ErrorKind::ResourceBusy)
+    }
+}
