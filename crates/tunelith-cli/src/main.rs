@@ -69,6 +69,7 @@ fn parse_u16(s: &str) -> Result<u16, String> {
 
 fn registry() -> Registry {
     Registry::new(vec![
+        Box::new(tunelith_driver_px4::driver()),
         Box::new(tunelith_driver_pt4k::driver()),
         Box::new(tunelith_core::dvb::DvbDriver::generic()),
     ])

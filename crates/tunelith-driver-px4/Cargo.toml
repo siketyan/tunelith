@@ -1,0 +1,12 @@
+[package]
+name = "tunelith-driver-px4"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license = "GPL-2.0-only"
+description = "Tunelith driver for the PLEX PX4/PX-MLT series and their kin, run in user space over USB"
+
+[dependencies]
+futures = "0.3"
+futures-timer = "3"
+tunelith-core = { workspace = true, features = ["usb"] }

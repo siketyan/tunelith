@@ -12,3 +12,4 @@ clap = { version = "4", features = ["derive"] }
 futures = "0.3"
 tunelith-core.workspace = true
 tunelith-driver-pt4k.workspace = true
+tunelith-driver-px4.workspace = true
