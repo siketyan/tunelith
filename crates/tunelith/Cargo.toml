@@ -11,3 +11,6 @@ description = "Client of tunelithd, sharing Japanese digital broadcasting tuners
 tokio = { version = "1", features = ["io-util", "net", "rt", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 tunelith-core.workspace = true
+
+[dev-dependencies]
+tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "signal"] }
