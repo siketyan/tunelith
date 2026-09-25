@@ -178,36 +178,52 @@ async fn list_direct() -> Result<()> {
     let registry = registry();
     for found in registry.probe().await? {
         println!("{} ({})", found.info.name, found.info.id);
-        for tuner in registry.open(&found).await?.tuners() {
-            println!("  {} {:?}", tuner.id, tuner.systems);
+        // Another program may hold a device, which leaves the others to list.
+        match registry.open(&found).await {
+            Ok(device) => {
+                for tuner in device.tuners() {
+                    println!("  {} {:?}", tuner.id, tuner.systems);
+                }
+            }
+            Err(e) => println!("  cannot open: {e}"),
         }
     }
     Ok(())
 }
 
-/// Opens the tuner asked for, or else the first free one receiving the system.
+/// Opens the tuner asked for, or else the first free one receiving the
+/// system. A device or a tuner that cannot be opened is passed over, another
+/// program perhaps holding it; the last reason is told if none can.
 async fn open_tuner(id: Option<&str>, system: System) -> Result<Box<dyn Tuner>> {
     let registry = registry();
+    let mut last_error = None;
     for found in registry.probe().await? {
-        let device = registry.open(&found).await?;
+        let device = match registry.open(&found).await {
+            Ok(device) => device,
+            Err(e) => {
+                last_error = Some(format!("{}: {e}", found.info.id));
+                continue;
+            }
+        };
         for (index, info) in device.tuners().iter().enumerate() {
             match id {
                 Some(id) if id == info.id => return Ok(device.open_tuner(index).await?),
                 None if info.systems.contains(&system) => match device.open_tuner(index).await {
                     Ok(tuner) => return Ok(tuner),
-                    Err(e) if e.is_busy() => {
-                        continue;
-                    }
-                    Err(e) => return Err(e.into()),
+                    Err(e) => last_error = Some(format!("{}: {e}", info.id)),
                 },
                 _ => {}
             }
         }
     }
 
-    Err(match id {
+    let message = match id {
         Some(id) => format!("no such tuner: {id}"),
         None => format!("no free tuner receives {system:?}"),
+    };
+    Err(match last_error {
+        Some(e) => format!("{message} (last: {e})"),
+        None => message,
     }
     .into())
 }
