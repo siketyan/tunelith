@@ -100,24 +100,24 @@ const MODELS: &[Model] = &[
     ),
     model(
         0x0254,
-        "Digibest ISDB6014 V2.0 (4TS)",
+        "Digibest ISDB6014 V2.0 (4TS) / e-better DTV02A-4TS-P",
         Kind::PxMlt(&[(0x65, 3, 0), (0x6c, 1, 1), (0x64, 1, 2), (0x64, 3, 4)]),
     ),
     model(0x0854, "PLEX PX-M1UR", Kind::Single(single::Model::M1ur)),
     model(0x0855, "PLEX PX-S1UR", Kind::Single(single::Model::S1ur)),
     model(
         0x004b,
-        "Digibest ISDB2056",
+        "Digibest ISDB2056 / e-better DTV02A-1T1S-U",
         Kind::Single(single::Model::Isdb2056),
     ),
     model(
         0x084b,
-        "Digibest ISDB2056N",
+        "Digibest ISDB2056N / e-better DTV02A-1T1S-U",
         Kind::Single(single::Model::Isdb2056n),
     ),
     model(
         0x0052,
-        "Digibest ISDBT2071",
+        "Digibest ISDBT2071 / e-better DTV03A-1TU",
         Kind::Single(single::Model::Isdbt2071),
     ),
 ];
