@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/siketyan/tunelith/compare/v0.2.0...v0.2.1) - 2026-09-25
+
+### Added
+
+- *(pt4k)* support Windows through the BDA driver ([#24](https://github.com/siketyan/tunelith/pull/24))
+
+### Fixed
+
+- *(cli)* stop waiting on a tuner that gives out nothing ([#27](https://github.com/siketyan/tunelith/pull/27))
+- *(cli)* pass over the devices and tuners --direct cannot open ([#25](https://github.com/siketyan/tunelith/pull/25))
+
 ## [0.2.0](https://github.com/siketyan/tunelith/compare/v0.1.0...v0.2.0) - 2026-09-25
 
 ### Added
