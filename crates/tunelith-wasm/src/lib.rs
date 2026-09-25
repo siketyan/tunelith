@@ -5,7 +5,7 @@
 //! Build for `wasm32-unknown-unknown` with `--cfg=web_sys_unstable_apis`,
 //! WebUSB being among the unstable APIs of web-sys, then run `wasm-bindgen`
 //! on the module. The page is to let the user pick the device with
-//! `navigator.usb.requestDevice` before [`open_device`], or have a policy
+//! `navigator.usb.requestDevice` before `openDevice`, or have a policy
 //! (`WebUsbAllowDevicesForUrls`) allow it.
 //!
 //! `example/` has a page that records from a tuner, and how to build it.
