@@ -13,6 +13,8 @@
 compile_error!("the 32-bit Windows hosts call the member functions in thiscall, not supported");
 
 mod config;
+#[cfg_attr(windows, path = "msvc.rs")]
+#[cfg_attr(not(windows), path = "itanium.rs")]
 mod rtti;
 
 use std::error::Error;

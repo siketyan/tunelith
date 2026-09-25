@@ -220,8 +220,8 @@ channel = [
 A channel takes the same as `tunelith tune`: `frequency` in kHz, `stream_id`
 for a satellite, and `polarization`. A copy of the library under another
 name, with its own file, makes another list. The C/N stands for the signal
-level. The Linux hosts that `dynamic_cast` the object to IBonDriver2 are not
-supported.
+level. On Linux it goes into hosts such as BonDriverProxy_Linux, and links the
+C++ runtime for their `dynamic_cast`.
 
 ## Not in scope
 

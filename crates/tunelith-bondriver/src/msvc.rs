@@ -4,9 +4,6 @@
 //! names. On x64 its structures refer to one another by offsets from the image
 //! base, which it takes to be the address of the locator less the offset the
 //! locator gives of itself: the offsets are from the start of [`RTTI`], then.
-//!
-//! The Itanium ABI of the Linux hosts reads the words before the vtable
-//! otherwise; their `dynamic_cast` is not supported.
 
 use std::mem::offset_of;
 
