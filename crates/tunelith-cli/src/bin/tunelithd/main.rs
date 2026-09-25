@@ -94,10 +94,6 @@ fn error(message: impl ToString) -> Body {
     })
 }
 
-fn is_busy(e: &Error) -> bool {
-    matches!(e, Error::Io(e) if e.kind() == io::ErrorKind::ResourceBusy)
-}
-
 impl Daemon {
     fn list(&self) -> proto::ListResponse {
         let state = self.state.lock().unwrap();
@@ -194,6 +190,17 @@ impl Daemon {
             })
             .filter(|(_, _, info)| info.systems.contains(&params.system) && wanted(&info.id))
             .collect();
+        if candidates.is_empty() {
+            let known = self
+                .devices
+                .iter()
+                .any(|device| device.tuners().iter().any(|info| info.id == request.tuner));
+            return Err(if request.tuner.is_empty() || known {
+                Error::Unsupported(params.system)
+            } else {
+                Error::NotFound(request.tuner.clone())
+            });
+        }
 
         // A tuner being closed is waited for only once no other is free.
         for wait in [false, true] {
@@ -220,7 +227,7 @@ impl Daemon {
                     }
                     Err(e) => {
                         self.state.lock().unwrap().busy.remove(&info.id);
-                        if is_busy(&e) && request.tuner.is_empty() {
+                        if e.is_busy() && request.tuner.is_empty() {
                             continue;
                         }
                         return Err(e);
@@ -229,11 +236,12 @@ impl Daemon {
             }
         }
 
-        Err(if request.tuner.is_empty() {
-            io::Error::other(format!("no free tuner receives {:?}", params.system)).into()
+        let message = if request.tuner.is_empty() {
+            format!("no free tuner receives {:?}", params.system)
         } else {
-            io::Error::other(format!("the tuner {} is busy or unknown", request.tuner)).into()
-        })
+            format!("the tuner {} is busy", request.tuner)
+        };
+        Err(io::Error::new(io::ErrorKind::ResourceBusy, message).into())
     }
 
     /// Takes the tuner for a new stream, if `wait` waiting for it to be
@@ -438,7 +446,7 @@ impl Daemon {
                     }
                     Body::AcquireResponse(response)
                 }
-                Err(e) => error(e),
+                Err(e) => Body::Error((&e).into()),
             },
             Some(Body::ReleaseRequest(request)) => {
                 if let Some(owned) = owned.lock().unwrap().as_mut() {
@@ -449,7 +457,7 @@ impl Daemon {
             }
             Some(Body::SignalRequest(request)) => match self.signal(request.stream_token).await {
                 Ok(response) => Body::SignalResponse(response),
-                Err(e) => error(e),
+                Err(e) => Body::Error((&e).into()),
             },
             _ => error("unexpected request"),
         }
