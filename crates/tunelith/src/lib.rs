@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
+use std::task::{Context, Poll, Waker, ready};
 
 use tokio::io::{AsyncRead, AsyncWriteExt, ReadBuf};
 use tokio::net::UnixStream;
@@ -37,7 +37,32 @@ struct Inner {
     pending: Mutex<HashMap<u64, oneshot::Sender<Body>>>,
     /// The bytes each stream lost, as tunelithd reports them.
     drops: Mutex<HashMap<u64, Arc<AtomicU64>>>,
+    /// How each stream ended, once tunelithd says.
+    ends: Mutex<HashMap<u64, End>>,
     next_id: AtomicU64,
+}
+
+enum End {
+    /// Not yet; the waker of the read waiting to know.
+    Pending(Option<Waker>),
+    /// For the error, if any.
+    Ended(Option<String>),
+}
+
+impl Inner {
+    fn forget(&self, token: u64) {
+        self.drops.lock().unwrap().remove(&token);
+        self.ends.lock().unwrap().remove(&token);
+    }
+
+    fn end(&self, token: u64, error: Option<String>) {
+        if let Some(end) = self.ends.lock().unwrap().get_mut(&token)
+            && let End::Pending(waker) = std::mem::replace(end, End::Ended(error))
+            && let Some(waker) = waker
+        {
+            waker.wake();
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -118,6 +143,7 @@ impl Client {
             requests,
             pending: Mutex::default(),
             drops: Mutex::default(),
+            ends: Mutex::default(),
             next_id: AtomicU64::new(1),
         });
         let weak = Arc::downgrade(&inner);
@@ -134,6 +160,10 @@ impl Client {
                             dropped.fetch_add(event.dropped_bytes, Ordering::Relaxed);
                         }
                     }
+                    Some(Body::StreamEndEvent(event)) => {
+                        let error = (!event.error.is_empty()).then_some(event.error);
+                        inner.end(event.stream_token, error);
+                    }
                     Some(body) => {
                         if let Some(tx) = inner.pending.lock().unwrap().remove(&envelope.id) {
                             let _ = tx.send(body);
@@ -142,9 +172,13 @@ impl Client {
                     None => {}
                 }
             }
-            // Fails the calls left waiting.
+            // Fails the calls and the streams left waiting.
             if let Some(inner) = weak.upgrade() {
                 inner.pending.lock().unwrap().clear();
+                let tokens: Vec<_> = inner.ends.lock().unwrap().keys().copied().collect();
+                for token in tokens {
+                    inner.end(token, Some("tunelithd closed the connection".to_owned()));
+                }
             }
         });
 
@@ -224,7 +258,21 @@ impl Client {
             return Err(unexpected());
         };
 
+        // Kept from now on, as tunelithd may report on the stream before its
+        // data connection is up.
         let token = response.stream_token;
+        let dropped = Arc::new(AtomicU64::new(0));
+        self.inner
+            .drops
+            .lock()
+            .unwrap()
+            .insert(token, dropped.clone());
+        self.inner
+            .ends
+            .lock()
+            .unwrap()
+            .insert(token, End::Pending(None));
+
         let attached = async {
             let format = proto::stream_format(response.format).ok_or_else(unexpected)?;
             let data = connect(&self.inner.path, Role::StreamToken(token)).await?;
@@ -234,17 +282,12 @@ impl Client {
         let (format, data) = match attached {
             Ok(attached) => attached,
             Err(e) => {
+                self.inner.forget(token);
                 self.release(token);
                 return Err(e);
             }
         };
 
-        let dropped = Arc::new(AtomicU64::new(0));
-        self.inner
-            .drops
-            .lock()
-            .unwrap()
-            .insert(token, dropped.clone());
         Ok(Stream {
             client: self.clone(),
             token,
@@ -294,18 +337,36 @@ impl Stream {
 }
 
 impl AsyncRead for Stream {
+    /// Fails the read that finds the end of a stream that failed.
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.get_mut().data).poll_read(cx, buf)
+        let this = self.get_mut();
+        let filled = buf.filled().len();
+        ready!(Pin::new(&mut this.data).poll_read(cx, buf))?;
+        if buf.filled().len() > filled || buf.remaining() == 0 {
+            return Poll::Ready(Ok(()));
+        }
+
+        // The end: tunelithd tells how it came on the control connection,
+        // which may not be there yet.
+        let mut ends = this.client.inner.ends.lock().unwrap();
+        match ends.get_mut(&this.token) {
+            Some(End::Pending(waker)) => {
+                *waker = Some(cx.waker().clone());
+                Poll::Pending
+            }
+            Some(End::Ended(Some(error))) => Poll::Ready(Err(io::Error::other(error.clone()))),
+            Some(End::Ended(None)) | None => Poll::Ready(Ok(())),
+        }
     }
 }
 
 impl Drop for Stream {
     fn drop(&mut self) {
-        self.client.inner.drops.lock().unwrap().remove(&self.token);
+        self.client.inner.forget(self.token);
         self.client.release(self.token);
     }
 }
