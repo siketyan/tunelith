@@ -661,6 +661,11 @@ pub fn interfaces(category: u128) -> io::Result<Vec<Interface>> {
 
             let mut needed = 0;
             SetupDiGetDeviceInterfaceDetailW(set, &data, null_mut(), 0, &mut needed, null_mut());
+            // No size, as when the interface has gone since, leaves nothing
+            // to write the header of the detail into.
+            if (needed as usize) < size_of::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>() {
+                continue;
+            }
             // A buffer aligned for the structure the size is of.
             let mut buf = vec![0u64; (needed as usize).div_ceil(8)];
             let detail = buf.as_mut_ptr().cast::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>();

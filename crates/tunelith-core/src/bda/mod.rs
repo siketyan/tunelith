@@ -428,6 +428,7 @@ struct SinkState {
 struct Graph {
     filters: Filters,
     sink: Sink,
+    lnb: Mutex<LnbRequests>,
     antenna: Handle,
     tuner_output: Handle,
     capture_input: Handle,
@@ -526,6 +527,7 @@ impl Graph {
         Ok(Self {
             filters,
             sink,
+            lnb: Mutex::default(),
             antenna,
             tuner_output,
             capture_input,
@@ -645,11 +647,22 @@ struct BdaTuner<Q: Quirks> {
     _opened: Opened,
 }
 
+/// The commands to the LNB supply, which run apart from their callers and
+/// may be given up on: only the last asked for is sent, one at a time under
+/// the lock, and none once the tuner has gone.
+#[derive(Default)]
+struct LnbRequests {
+    last: u64,
+    closed: bool,
+}
+
 impl<Q> Drop for BdaTuner<Q>
 where
     Q: Quirks,
 {
     fn drop(&mut self) {
+        let mut requests = self.graph.lnb.lock().unwrap();
+        requests.closed = true;
         if self.lnb {
             let _ = self.quirks.set_lnb(&Pin(&self.graph.antenna), false);
         }
@@ -710,10 +723,23 @@ impl<Q: Quirks> Tuner for BdaTuner<Q> {
             }
             let graph = self.graph.clone();
             let quirks = self.quirks.clone();
-            blocking::unblock(move || match quirks.set_lnb(&Pin(&graph.antenna), on) {
-                // Nothing to turn off where there is no way to turn it on.
-                Err(e) if !on && e.kind() == io::ErrorKind::Unsupported => Ok(()),
-                result => result,
+            let request = {
+                let mut requests = graph.lnb.lock().unwrap();
+                requests.last += 1;
+                requests.last
+            };
+            blocking::unblock(move || {
+                let requests = graph.lnb.lock().unwrap();
+                // Asked for again since, or the tuner gone: this one was
+                // given up on.
+                if requests.closed || requests.last != request {
+                    return Ok(());
+                }
+                match quirks.set_lnb(&Pin(&graph.antenna), on) {
+                    // Nothing to turn off where there is no way to turn it on.
+                    Err(e) if !on && e.kind() == io::ErrorKind::Unsupported => Ok(()),
+                    result => result,
+                }
             })
             .await?;
             self.lnb = on;
