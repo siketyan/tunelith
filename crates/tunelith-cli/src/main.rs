@@ -101,6 +101,36 @@ fn parse_u16(s: &str) -> Result<u16, String> {
 
 type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
 
+/// A tuner gives out data all the time, null packets if nothing else: none
+/// for this long means it has stopped.
+const STALL_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Waits for `read` until the deadline, if any, or until the stream has
+/// stalled; `None` at the deadline.
+async fn read_within<T>(
+    read: impl Future<Output = T>,
+    deadline: Option<Instant>,
+) -> Result<Option<T>> {
+    read_or_stall(read, deadline, STALL_TIMEOUT).await
+}
+
+async fn read_or_stall<T>(
+    read: impl Future<Output = T>,
+    deadline: Option<Instant>,
+    stall_timeout: Duration,
+) -> Result<Option<T>> {
+    let stall = tokio::time::Instant::now() + stall_timeout;
+    let until = match deadline {
+        Some(deadline) => stall.min(deadline.into()),
+        None => stall,
+    };
+    match tokio::time::timeout_at(until, read).await {
+        Ok(value) => Ok(Some(value)),
+        Err(_) if deadline.is_some_and(|d| Instant::now() >= d) => Ok(None),
+        Err(_) => Err(format!("no data from the tuner for {} s", stall_timeout.as_secs()).into()),
+    }
+}
+
 async fn connect(cli: &Cli) -> Result<Client> {
     let socket = cli.socket.clone().unwrap_or_else(tunelith::default_socket);
     Client::connect(&socket).await.map_err(|e| {
@@ -140,7 +170,10 @@ async fn tune(cli: &Cli, args: &TuneArgs) -> Result<()> {
     let mut stdout = tokio::io::stdout();
     let mut buf = vec![0; 188 * 1024];
     loop {
-        let n = stream.read(&mut buf).await?;
+        let Some(n) = read_within(stream.read(&mut buf), deadline).await? else {
+            break;
+        };
+        let n = n?;
         if n == 0 {
             break;
         }
@@ -250,7 +283,7 @@ async fn tune_direct(args: &TuneArgs) -> Result<()> {
     let deadline = args.deadline();
     let result: Result<()> = async {
         let mut stdout = io::stdout().lock();
-        while let Some(chunk) = stream.next().await {
+        while let Some(Some(chunk)) = read_within(stream.next(), deadline).await? {
             match stdout.write_all(&chunk?) {
                 Err(e) if e.kind() == io::ErrorKind::BrokenPipe => break,
                 result => result?,
@@ -285,5 +318,37 @@ async fn main() -> ExitCode {
             eprintln!("error: {e}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SHORT: Duration = Duration::from_millis(50);
+
+    #[tokio::test]
+    async fn reads_in_time() {
+        let got = read_or_stall(async { 1 }, None, SHORT).await.unwrap();
+        assert_eq!(got, Some(1));
+    }
+
+    #[tokio::test]
+    async fn stops_at_the_deadline() {
+        let deadline = Instant::now() + SHORT;
+        let got = read_or_stall(std::future::pending::<()>(), Some(deadline), SHORT * 10).await;
+        assert!(matches!(got, Ok(None)));
+    }
+
+    #[tokio::test]
+    async fn fails_on_a_stall() {
+        let deadline = Instant::now() + SHORT * 10;
+        let got = read_or_stall(std::future::pending::<()>(), Some(deadline), SHORT).await;
+        assert!(got.is_err());
+        assert!(
+            read_or_stall(std::future::pending::<()>(), None, SHORT)
+                .await
+                .is_err()
+        );
     }
 }
