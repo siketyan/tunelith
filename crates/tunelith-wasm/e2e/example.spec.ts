@@ -34,9 +34,8 @@ test("records a TS", async ({ page }) => {
   const ts = await readFile(await (await download).path());
   expect(ts.length).toBeGreaterThan(0);
   expect(ts.length % 188).toBe(0);
-  for (let i = 0; i < ts.length; i += 188) {
-    expect(ts[i], `the sync byte at ${i}`).toBe(0x47);
-  }
+  const unsynced = ts.findIndex((byte, i) => i % 188 === 0 && byte !== 0x47);
+  expect(unsynced, "the first packet out of sync").toBe(-1);
   await expect(log).not.toContainText("error");
 });
 
