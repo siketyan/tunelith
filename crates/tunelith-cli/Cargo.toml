@@ -3,6 +3,7 @@ name = "tunelith-cli"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 license = "GPL-2.0-only"
 description = "Tunes Japanese digital broadcasts by frequency and stream id, writing the stream to stdout"
 
@@ -19,3 +20,8 @@ tunelith.workspace = true
 tunelith-core = { workspace = true, features = ["dvb"] }
 tunelith-driver-pt4k.workspace = true
 tunelith-driver-px4.workspace = true
+
+# The archives take the GPL rather than the licenses at the root.
+[package.metadata.dist]
+auto-includes = false
+include = ["LICENSE", "../../README.md"]

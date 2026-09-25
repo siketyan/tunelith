@@ -3,6 +3,7 @@ name = "tunelithd"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 license = "GPL-2.0-only"
 description = "Daemon sharing Japanese digital broadcasting tuners among programs"
 
@@ -15,3 +16,8 @@ tokio-util = { version = "0.7", features = ["compat"] }
 tunelith-core = { workspace = true, features = ["dvb"] }
 tunelith-driver-pt4k.workspace = true
 tunelith-driver-px4.workspace = true
+
+# The archives take the GPL rather than the licenses at the root.
+[package.metadata.dist]
+auto-includes = false
+include = ["LICENSE", "../../README.md"]
