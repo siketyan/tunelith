@@ -1,0 +1,3 @@
+# WebUSB is among the unstable APIs of web-sys, which nusb uses in the browser.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg=web_sys_unstable_apis"]
