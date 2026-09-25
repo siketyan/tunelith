@@ -10,6 +10,7 @@ repository = "https://github.com/siketyan/tunelith"
 [workspace.dependencies]
 tunelith = { path = "crates/tunelith", version = "0.1.0" }
 tunelith-core = { path = "crates/tunelith-core", version = "0.1.0", default-features = false }
+tunelith-driver-mock = { path = "crates/tunelith-driver-mock", version = "0.1.0" }
 tunelith-driver-pt4k = { path = "crates/tunelith-driver-pt4k", version = "0.1.0" }
 tunelith-driver-px4 = { path = "crates/tunelith-driver-px4", version = "0.1.0" }
 
