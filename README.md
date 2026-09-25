@@ -51,7 +51,7 @@ of eight tuners, powered together.
 | `tunelith-core` | Public types, the `Driver` / `Device` / `Tuner` traits, `Registry`, the generic Linux DVB driver, the USB transport over nusb | MIT OR Apache-2.0 |
 | `tunelith-driver-pt4k` | PT4K (TBS6812) on top of the generic DVB driver | MIT OR Apache-2.0 |
 | `tunelith-driver-px4` | The PLEX / e-better / Digibest USB tuners, ported from px4_drv | GPL-2.0-only |
-| `tunelith-cli` | The `tunelith-cli` command | GPL-2.0-only |
+| `tunelith-cli` | The `tunelith` command | GPL-2.0-only |
 
 `tunelith-driver-px4` is a port of [px4_drv](https://github.com/tsukumijima/px4_drv)
 and is under its license, GPL-2.0-only; see its [PROVENANCE.md](crates/tunelith-driver-px4/PROVENANCE.md).
@@ -97,20 +97,20 @@ using the device. The DVB tuners need access to `/dev/dvb`, usually through the
 List the devices and their tuners:
 
 ```shell
-tunelith-cli list
+tunelith list
 ```
 
 Tune and write the stream to stdout:
 
 ```shell
 # ISDB-T: the frequency in kHz.
-tunelith-cli tune --system isdb-t --freq 521143 > out.ts
+tunelith tune --system isdb-t --freq 521143 > out.ts
 
 # ISDB-S: the downlink frequency in kHz, before the LNB converts it, and the TSID.
-tunelith-cli tune --system isdb-s --freq 11727480 --stream-id 0x4010 > out.ts
+tunelith tune --system isdb-s --freq 11727480 --stream-id 0x4010 > out.ts
 
 # ISDB-S3: the TLV stream id; add `--polarization left` for a left-hand circular broadcast.
-tunelith-cli tune --system isdb-s3 --freq 12034360 --stream-id 0xB110 > out.tlv
+tunelith tune --system isdb-s3 --freq 12034360 --stream-id 0xB110 > out.tlv
 ```
 
 | Option | Description |
