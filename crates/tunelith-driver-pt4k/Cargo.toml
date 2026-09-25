@@ -9,3 +9,6 @@ description = "Tunelith driver for PT4K (TBS6812)"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tunelith-core = { workspace = true, features = ["dvb"] }
+
+[target.'cfg(windows)'.dependencies]
+tunelith-core = { workspace = true, features = ["bda"] }
