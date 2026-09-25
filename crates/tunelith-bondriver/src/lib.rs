@@ -29,7 +29,7 @@ use tokio::io::AsyncReadExt;
 use tokio::runtime::{Handle, Runtime};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
-use tunelith::{AcquireOptions, Client, Stream};
+use tunelith::{AcquireOptions, Client, Signal, Stream};
 
 use config::{Config, wide};
 
@@ -222,6 +222,11 @@ impl BonDriver {
             lnb: self.config.lnb,
         };
         let stream = runtime.block_on(client.acquire(params, options))?;
+        // The level is there once the channel is, for the hosts reading it
+        // right after the tune.
+        if let Ok(signal) = runtime.block_on(stream.signal()) {
+            self.level.store(level_bits(&signal), Ordering::Relaxed);
+        }
         let (tx, rx) = mpsc::channel(QUEUE);
         let receiver = runtime.spawn(receive(stream, tx, self.level.clone()));
         *lock(&self.data) = Data {
@@ -266,6 +271,11 @@ impl BonDriver {
     }
 }
 
+/// The signal level a host is given, the C/N, as the bits of an `f32`.
+fn level_bits(signal: &Signal) -> u32 {
+    (signal.cnr_db.unwrap_or_default() as f32).to_bits()
+}
+
 /// Reads the stream into `tx`, and its signal into `level` every second.
 async fn receive(mut stream: Stream, tx: mpsc::Sender<Vec<u8>>, level: Arc<AtomicU32>) {
     let mut interval = tokio::time::interval(Duration::from_secs(1));
@@ -282,8 +292,7 @@ async fn receive(mut stream: Stream, tx: mpsc::Sender<Vec<u8>>, level: Arc<Atomi
             },
             _ = interval.tick() => {
                 if let Ok(signal) = stream.signal().await {
-                    let cnr = signal.cnr_db.unwrap_or_default() as f32;
-                    level.store(cnr.to_bits(), Ordering::Relaxed);
+                    level.store(level_bits(&signal), Ordering::Relaxed);
                 }
             }
         }
