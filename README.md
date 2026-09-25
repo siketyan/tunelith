@@ -28,17 +28,17 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 ## Device support
 
-| Device | Linux | Windows | macOS | Browser (WebUSB) |
+| Device | Linux | Windows | macOS[^os] | Browser (WebUSB) |
 |---|:-:|:-:|:-:|:-:|
-| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| PLEX PX-M1UR | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| PLEX PX-S1UR | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| Digibest ISDB6014 V2.0 (4TS) / e-better DTV02A-4TS-P | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| Digibest ISDBT2071 / e-better DTV03A-1TU | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| e-better DTV02A-5TS-P | ✅ | ✅[^os] | ✅[^os] | ✅ |
+| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5[^untested] | ✅ | ✅ | ✅ | ✅ |
+| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5[^untested] | ✅ | ✅ | ✅ | ✅ |
+| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE[^untested] | ✅ | ✅ | ✅ | ✅ |
+| PLEX PX-M1UR[^untested] | ✅ | ✅ | ✅ | ✅ |
+| PLEX PX-S1UR[^untested] | ✅ | ✅ | ✅ | ✅ |
+| Digibest ISDB6014 V2.0 (4TS) / e-better DTV02A-4TS-P[^untested] | ✅ | ✅ | ✅ | ✅ |
+| Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U[^untested] | ✅ | ✅ | ✅ | ✅ |
+| Digibest ISDBT2071 / e-better DTV03A-1TU[^untested] | ✅ | ✅ | ✅ | ✅ |
+| e-better DTV02A-5TS-P | ✅ | ✅ | ✅ | ✅ |
 | PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
 | Other ISDB tuners with a Linux DVB driver | ✅[^generic] | — | — | — |
 
@@ -57,8 +57,8 @@ definitions, scanning, EPG and descrambling are left to the layer above.
     tested on the device itself. Reports are welcome.
 [^generic]: Whatever the kernel driver supports, taken as it is. Model-specific
     handling goes in a driver of its own.
-[^os]: Builds and passes the tests on the OS in CI, but has not run on a device
-    there yet. On Windows, WinUSB must be bound to the device.
+[^os]: Builds and passes the tests on macOS in CI, but has not run on a device
+    there yet.
 
 The USB driver runs in user space over [nusb](https://github.com/kevinmehall/nusb),
 which works on Linux, Windows (WinUSB), macOS and in Chromium browsers
@@ -118,6 +118,12 @@ If the px4_drv kernel module is loaded, Tunelith takes the device from it when
 opening it; the module is to be blacklisted for Tunelith to be the only one
 using the device. The DVB tuners need access to `/dev/dvb`, usually through the
 `video` group.
+
+### WinUSB (Windows)
+
+The USB tuners are driven through WinUSB, which must be bound to the device in
+place of any other driver. Installing the WinUSB INF of
+[px4_drv](https://github.com/tsukumijima/px4_drv) (for Windows) does this.
 
 ## Usage
 

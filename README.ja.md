@@ -28,17 +28,17 @@ EPG，デスクランブルは上位のレイヤに任せます．
 
 ## 対応デバイス
 
-| デバイス | Linux | Windows | macOS | ブラウザ (WebUSB) |
+| デバイス | Linux | Windows | macOS[^os] | ブラウザ (WebUSB) |
 |---|:-:|:-:|:-:|:-:|
-| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| PLEX PX-M1UR | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| PLEX PX-S1UR | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| Digibest ISDB6014 V2.0 (4TS) / e-better DTV02A-4TS-P | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| Digibest ISDBT2071 / e-better DTV03A-1TU | ✅[^untested] | ✅[^os] | ✅[^os] | ✅[^untested] |
-| e-better DTV02A-5TS-P | ✅ | ✅[^os] | ✅[^os] | ✅ |
+| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5[^untested] | ✅ | ✅ | ✅ | ✅ |
+| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5[^untested] | ✅ | ✅ | ✅ | ✅ |
+| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE[^untested] | ✅ | ✅ | ✅ | ✅ |
+| PLEX PX-M1UR[^untested] | ✅ | ✅ | ✅ | ✅ |
+| PLEX PX-S1UR[^untested] | ✅ | ✅ | ✅ | ✅ |
+| Digibest ISDB6014 V2.0 (4TS) / e-better DTV02A-4TS-P[^untested] | ✅ | ✅ | ✅ | ✅ |
+| Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U[^untested] | ✅ | ✅ | ✅ | ✅ |
+| Digibest ISDBT2071 / e-better DTV03A-1TU[^untested] | ✅ | ✅ | ✅ | ✅ |
+| e-better DTV02A-5TS-P | ✅ | ✅ | ✅ | ✅ |
 | PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
 | Linux DVB ドライバのあるその他の ISDB チューナ | ✅[^generic] | — | — | — |
 
@@ -56,8 +56,8 @@ EPG，デスクランブルは上位のレイヤに任せます．
     試していません．報告を歓迎します．
 [^generic]: カーネルドライバが対応するものをそのまま扱います．機種固有の処理は
     専用のドライバで行います．
-[^os]: CI でその OS 向けにビルドしテストが通っていますが，まだ実機では動かして
-    いません．Windows ではデバイスに WinUSB を割り当てる必要があります．
+[^os]: CI で macOS 向けにビルドしテストが通っていますが，まだ実機では動かして
+    いません．
 
 USB ドライバは [nusb](https://github.com/kevinmehall/nusb) の上でユーザ空間で動作し，
 Linux，Windows (WinUSB)，macOS，Chromium 系ブラウザ (`tunelith-wasm` による WebUSB)
@@ -117,6 +117,12 @@ px4_drv のカーネルモジュールが読み込まれている場合，Tuneli
 モジュールから引き取ります．Tunelith だけがデバイスを使うよう，モジュールは
 ブラックリストに入れてください．DVB チューナには `/dev/dvb` へのアクセスが必要で，
 通常は `video` グループで与えられます．
+
+### WinUSB (Windows)
+
+USB チューナは WinUSB を通して制御するため，他のドライバに代えてデバイスに WinUSB を
+割り当てる必要があります．[px4_drv](https://github.com/tsukumijima/px4_drv) の
+Windows 向けの WinUSB 版 INF をインストールすると割り当てられます．
 
 ## 使い方
 
