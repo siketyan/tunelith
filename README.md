@@ -44,6 +44,12 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 ✅ supported, 🚧 planned, — not planned.
 
+> [!TIP]
+> **Testers wanted.** Most of the devices above have not been tested on the
+> device itself. If you have one, please try `tunelith list` and `tunelith tune`
+> and tell us how it went in an [issue](https://github.com/siketyan/tunelith/issues),
+> with the model and the OS, whether it works or not.
+
 [^left]: ISDB-S3 is tested with right-hand circular 4K broadcasts only; a
     left-hand one (NHK BS8K) could not be received with the antenna at hand,
     by any tool.
