@@ -7,8 +7,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::io;
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::pin::pin;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
@@ -16,15 +15,18 @@ use std::time::Duration;
 
 use clap::Parser;
 use futures::StreamExt;
-use tokio::io::AsyncWriteExt;
-use tokio::net::unix::OwnedWriteHalf;
-use tokio::net::{UnixListener, UnixStream};
-use tokio::signal::unix::{SignalKind, signal};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::sync::Notify;
 use tokio::sync::mpsc::{self, error::TrySendError};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tunelith_core::proto::{self, Envelope, envelope::Body, hello::Role};
-use tunelith_core::{ByteStream, Device, Error, Registry, Result, StreamFormat, TuneParams, Tuner};
+use tunelith_core::{
+    ByteStream, Device, Driver, Error, Registry, Result, StreamFormat, TuneParams, Tuner,
+};
+
+use crate::listener::Listener;
+
+mod listener;
 
 /// The chunks a client may fall behind by before its stream loses data.
 const BACKLOG: usize = 256;
@@ -38,7 +40,7 @@ struct Args {
     #[arg(long, env = "TUNELITH_SOCKET", default_value = proto::DEFAULT_SOCKET)]
     socket: PathBuf,
     /// The group whose members may use the tuners through the socket; empty
-    /// for the group the daemon runs as.
+    /// for the group the daemon runs as. Unix only.
     #[arg(long, default_value = "video")]
     socket_group: String,
 }
@@ -453,8 +455,8 @@ impl Daemon {
         }
     }
 
-    async fn connection(self: Arc<Self>, stream: UnixStream) {
-        let (read, mut write) = stream.into_split();
+    async fn connection(self: Arc<Self>, stream: listener::Connection) {
+        let (read, mut write) = tokio::io::split(stream);
         let mut read = read.compat();
         let role = match proto::read(&mut read).await {
             Ok(Some(Envelope {
@@ -502,7 +504,7 @@ impl Daemon {
     async fn control(
         self: Arc<Self>,
         mut read: impl futures::AsyncRead + Unpin,
-        mut write: OwnedWriteHalf,
+        mut write: impl AsyncWrite + Unpin + Send + 'static,
     ) {
         let (events, mut outgoing) = mpsc::unbounded_channel::<Envelope>();
         tokio::spawn(async move {
@@ -547,12 +549,12 @@ fn flush_drops(token: u64, subscriber: &mut Subscriber) {
     }
 }
 
-async fn send(write: &mut OwnedWriteHalf, envelope: Envelope) -> io::Result<()> {
+async fn send(write: &mut (impl AsyncWrite + Unpin), envelope: Envelope) -> io::Result<()> {
     write.write_all(&proto::encode(&envelope)).await
 }
 
 /// Writes the chunks of a stream to its data connection until either ends.
-async fn data(mut write: OwnedWriteHalf, mut rx: mpsc::Receiver<Chunk>) {
+async fn data(mut write: impl AsyncWrite + Unpin, mut rx: mpsc::Receiver<Chunk>) {
     while let Some(chunk) = rx.recv().await {
         if write.write_all(&chunk).await.is_err() {
             break;
@@ -561,11 +563,14 @@ async fn data(mut write: OwnedWriteHalf, mut rx: mpsc::Receiver<Chunk>) {
 }
 
 async fn open_devices() -> Result<Vec<Box<dyn Device>>> {
-    let registry = Registry::new(vec![
+    let drivers: Vec<Box<dyn Driver>> = vec![
         Box::new(tunelith_driver_px4::driver()),
+        #[cfg(target_os = "linux")]
         Box::new(tunelith_driver_pt4k::driver()),
+        #[cfg(target_os = "linux")]
         Box::new(tunelith_core::dvb::DvbDriver::generic()),
-    ]);
+    ];
+    let registry = Registry::new(drivers);
     let mut devices = Vec::new();
     for found in registry.probe().await? {
         match registry.open(&found).await {
@@ -584,56 +589,9 @@ async fn open_devices() -> Result<Vec<Box<dyn Device>>> {
     Ok(devices)
 }
 
-/// Binds the socket, taking over a stale one but not one in use.
-async fn bind(path: &Path) -> io::Result<UnixListener> {
-    if UnixStream::connect(path).await.is_ok() {
-        return Err(io::Error::new(
-            io::ErrorKind::AddrInUse,
-            format!("tunelithd is already listening on {}", path.display()),
-        ));
-    }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
-    match std::fs::remove_file(path) {
-        Err(e) if e.kind() != io::ErrorKind::NotFound => return Err(e),
-        _ => {}
-    }
-    UnixListener::bind(path)
-}
-
-/// Lets the owner and `group` connect to the socket, and no one else.
-fn share(path: &Path, group: &str) -> io::Result<()> {
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o660))?;
-    if group.is_empty() {
-        return Ok(());
-    }
-    match gid(group)? {
-        Some(gid) => std::os::unix::fs::chown(path, None, Some(gid)),
-        None => {
-            eprintln!("no group {group}: the socket is for its owner alone");
-            Ok(())
-        }
-    }
-}
-
-/// The id of `group`.
-// ponytail: /etc/group alone; groups from NSS (LDAP and the like) need
-// getgrnam.
-fn gid(group: &str) -> io::Result<Option<u32>> {
-    let groups = std::fs::read_to_string("/etc/group")?;
-    Ok(groups.lines().find_map(|line| {
-        let mut fields = line.split(':');
-        (fields.next() == Some(group))
-            .then(|| fields.nth(1)?.parse().ok())
-            .flatten()
-    }))
-}
-
 async fn run(args: Args) -> Result<()> {
     let devices = open_devices().await?;
-    let listener = bind(&args.socket).await?;
-    share(&args.socket, &args.socket_group)?;
+    let mut listener = Listener::bind(&args.socket, &args.socket_group).await?;
     eprintln!("listening on {}", args.socket.display());
 
     let daemon = Arc::new(Daemon {
@@ -641,22 +599,24 @@ async fn run(args: Args) -> Result<()> {
         state: Mutex::default(),
         closed: Notify::new(),
     });
-    let mut terminate = signal(SignalKind::terminate())?;
+    let mut shutdown = pin!(listener::shutdown());
     loop {
         tokio::select! {
             accepted = listener.accept() => {
-                if let Ok((stream, _)) = accepted {
+                if let Ok(stream) = accepted {
                     tokio::spawn(daemon.clone().connection(stream));
                 }
             }
-            _ = tokio::signal::ctrl_c() => break,
-            _ = terminate.recv() => break,
+            result = &mut shutdown => {
+                result?;
+                break;
+            }
         }
     }
 
     // ponytail: the tuners are released on threads of their own, which the
     // process may end before; a clean shutdown would wait for them.
-    let _ = std::fs::remove_file(&args.socket);
+    listener.close();
     Ok(())
 }
 

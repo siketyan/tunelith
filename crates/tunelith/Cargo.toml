@@ -7,6 +7,6 @@ license = "MIT OR Apache-2.0"
 description = "Client of tunelithd, sharing Japanese digital broadcasting tuners"
 
 [dependencies]
-tokio = { version = "1", features = ["io-util", "net", "rt", "sync"] }
+tokio = { version = "1", features = ["io-util", "net", "rt", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 tunelith-core.workspace = true

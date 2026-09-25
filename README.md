@@ -15,15 +15,15 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 | Device | Linux | Windows | macOS | Browser (WebUSB) |
 |---|:-:|:-:|:-:|:-:|
 | PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
-| e-better DTV02A-5TS-P | ✅ | 🚧 | 🚧 | 🚧 |
-| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| Digibest ISDB6014 V2.0 (4TS) | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| PLEX PX-M1UR | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| PLEX PX-S1UR | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| Digibest ISDB2056 / ISDB2056N | ✅[^untested] | 🚧 | 🚧 | 🚧 |
-| Digibest ISDBT2071 | ✅[^untested] | 🚧 | 🚧 | 🚧 |
+| e-better DTV02A-5TS-P | ✅ | ✅[^os] | ✅[^os] | 🚧 |
+| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| Digibest ISDB6014 V2.0 (4TS) | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| PLEX PX-M1UR | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| PLEX PX-S1UR | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| Digibest ISDB2056 / ISDB2056N | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
+| Digibest ISDBT2071 | ✅[^untested] | ✅[^os] | ✅[^os] | 🚧 |
 | Other ISDB tuners with a Linux DVB driver | ✅[^generic] | — | — | — |
 
 ✅ supported, 🚧 planned, — not planned.
@@ -35,11 +35,12 @@ definitions, scanning, EPG and descrambling are left to the layer above.
     tested on the device itself. Reports are welcome.
 [^generic]: Whatever the kernel driver supports, taken as it is. Model-specific
     handling goes in a driver of its own.
+[^os]: Builds and passes the tests on the OS in CI, but has not run on a device
+    there yet. On Windows, WinUSB must be bound to the device.
 
 The USB driver runs in user space over [nusb](https://github.com/kevinmehall/nusb),
-which also works on Windows (WinUSB), macOS and in Chromium browsers (WebUSB);
-Tunelith does not build for them yet. On Windows, the PT4K is to go through
-BDA.
+which works on Linux, Windows (WinUSB), macOS and in Chromium browsers
+(WebUSB). On Windows, the PT4K is to go through BDA.
 
 A PX-Q model is two boards on one card; Tunelith joins them into one device
 of eight tuners, powered together.
@@ -106,7 +107,8 @@ the tuner already receiving the same for another program.
 tunelithd
 ```
 
-It listens on `/run/tunelith/tunelithd.sock`, or where `--socket` or
+It listens on `/run/tunelith/tunelithd.sock` (on Windows, the named pipe
+`\\.\pipe\tunelith`), or where `--socket` or
 `TUNELITH_SOCKET` says, and lets the members of the `video` group use the
 tuners, or of the group `--socket-group` names. Run as a user who cannot write
 to `/run`, it needs `--socket` to point elsewhere, and so do its clients.

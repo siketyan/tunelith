@@ -18,9 +18,10 @@ the usage of the `tunelith` command.
 Rust (workspace of `crates/*`, edition 2024):
 
 - Build: `cargo build`
-- Test all: `cargo test --all-targets` (CI runs exactly this, on Linux)
+- Test all: `cargo test --all-targets` (CI runs exactly this, on Linux, Windows and macOS)
 - Test one crate: `cargo test -p tunelith-driver-px4`
-- Lint: `cargo clippy --all-targets -- -D warnings` (warnings fail CI)
+- Lint: `cargo clippy --all-targets -- -D warnings` (warnings fail CI, on each OS; the DVB driver and the PT4K are
+  Linux only, and tunelithd listens on a named pipe on Windows)
 - Format: `cargo fmt --all` (checked in CI with `--check`)
 - Licenses: `cargo deny check licenses` (CI runs it; see Licensing below)
 
@@ -45,7 +46,7 @@ Rust (workspace of `crates/*`, edition 2024):
 - `tunelithd` — the daemon: opens every device at start, shares a tuner among the clients asking for the same
   `TuneParams`, otherwise takes the first free one; each client reads through a bounded channel, losing data rather
   than holding the others up (`DropEvent`).
-- `tunelith` — the client of tunelithd (Tokio, Unix domain sockets).
+- `tunelith` — the client of tunelithd (Tokio; a Unix domain socket, or a named pipe on Windows).
 - `tunelith-cli` — the `tunelith` command (`list`, `tune`), through tunelithd or, with `--direct`, the devices.
 
 Frequencies are in kHz. A satellite frequency is the downlink one, before the LNB (`TuneParams::if_frequency_khz`
