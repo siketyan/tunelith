@@ -919,7 +919,7 @@ checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "tunelith"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "tokio",
  "tokio-util",
@@ -940,7 +940,7 @@ dependencies = [
 
 [[package]]
 name = "tunelith-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "futures",
@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "tunelith-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blocking",
  "futures",
@@ -969,7 +969,7 @@ dependencies = [
 
 [[package]]
 name = "tunelith-driver-mock"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "futures",
  "futures-timer",
@@ -978,14 +978,14 @@ dependencies = [
 
 [[package]]
 name = "tunelith-driver-pt4k"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "tunelith-core",
 ]
 
 [[package]]
 name = "tunelith-driver-px4"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "futures",
  "futures-timer",
@@ -996,7 +996,7 @@ dependencies = [
 
 [[package]]
 name = "tunelith-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "futures",
  "tunelith-core",

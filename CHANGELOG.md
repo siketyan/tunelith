@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/siketyan/tunelith/compare/v0.1.0...v0.2.0) - 2026-09-25
+
+### Added
+
+- tell why tunelithd failed with an error code ([#23](https://github.com/siketyan/tunelith/pull/23))
+- run tunelithd with systemd, for the system or a user ([#12](https://github.com/siketyan/tunelith/pull/12))
+- *(cli)* ship tunelithd with the tunelith command ([#10](https://github.com/siketyan/tunelith/pull/10))
+- support WebUSB through tunelith-wasm ([#17](https://github.com/siketyan/tunelith/pull/17))
+
+### Fixed
+
+- *(px4)* keep the timer at 1 ms on Windows while a device is open ([#22](https://github.com/siketyan/tunelith/pull/22))
+
+### Other
+
+- *(tunelith)* add a README, examples and rustdoc to the client ([#13](https://github.com/siketyan/tunelith/pull/13))
+- *(wasm)* add E2E tests on a mock device and a real one ([#18](https://github.com/siketyan/tunelith/pull/18))
+- name the e-better rebrands of the Digibest tuners ([#15](https://github.com/siketyan/tunelith/pull/15))
+
 ## [0.1.0](https://github.com/siketyan/tunelith/releases/tag/v0.1.0) - 2026-09-25
 
 ### Added
