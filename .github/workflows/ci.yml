@@ -71,7 +71,52 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Run Clippy
-        run: cargo clippy -p tunelith-wasm --all-targets --target wasm32-unknown-unknown -- -D warnings
+        run: cargo clippy -p tunelith-wasm --all-targets --all-features --target wasm32-unknown-unknown -- -D warnings
+
+  e2e:
+    name: E2E (wasm32, mock)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: crates/tunelith-wasm/e2e
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install --no-self-update
+          rustup target add wasm32-unknown-unknown
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # wasm-bindgen refuses a module built by another version of its crate.
+      - name: Find the version of wasm-bindgen
+        id: wasm-bindgen
+        run: echo "version=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "wasm-bindgen") | .version')" >> "$GITHUB_OUTPUT"
+      - name: Install wasm-bindgen
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: wasm-bindgen@${{ steps.wasm-bindgen.outputs.version }}
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: crates/tunelith-wasm/e2e/package-lock.json
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Check types
+        run: npm run typecheck
+      - name: Build with the mock device
+        run: ./build.sh --features mock
+      - name: Run tests
+        run: npm test
 
   crates:
     name: Crates
