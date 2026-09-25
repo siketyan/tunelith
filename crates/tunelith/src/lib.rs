@@ -50,6 +50,19 @@ enum End {
 }
 
 impl Inner {
+    /// Releases a stream, not waiting for the answer.
+    fn release(&self, stream_token: u64) {
+        self.forget(stream_token);
+        let request = proto::ReleaseRequest {
+            stream_token,
+            ..Default::default()
+        };
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let _ = self
+            .requests
+            .send(proto::envelope(id, Body::ReleaseRequest(request)));
+    }
+
     fn forget(&self, token: u64) {
         self.drops.lock().unwrap().remove(&token);
         self.ends.lock().unwrap().remove(&token);
@@ -165,8 +178,12 @@ impl Client {
                         inner.end(event.stream_token, error);
                     }
                     Some(body) => {
-                        if let Some(tx) = inner.pending.lock().unwrap().remove(&envelope.id) {
-                            let _ = tx.send(body);
+                        if let Some(tx) = inner.pending.lock().unwrap().remove(&envelope.id)
+                            && let Err(Body::AcquireResponse(response)) = tx.send(body)
+                        {
+                            // The acquire was given up on: nobody is to
+                            // release the stream but us.
+                            inner.release(response.stream_token);
                         }
                     }
                     None => {}
@@ -197,19 +214,6 @@ impl Client {
             Body::Error(e) => Err(remote(e.message)),
             body => Ok(body),
         }
-    }
-
-    /// Releases a stream, not waiting for the answer.
-    fn release(&self, stream_token: u64) {
-        let request = proto::ReleaseRequest {
-            stream_token,
-            ..Default::default()
-        };
-        let id = self.inner.next_id.fetch_add(1, Ordering::Relaxed);
-        let _ = self
-            .inner
-            .requests
-            .send(proto::envelope(id, Body::ReleaseRequest(request)));
     }
 
     pub async fn list(&self) -> Result<Vec<DeviceStatus>> {
@@ -261,6 +265,8 @@ impl Client {
         // Kept from now on, as tunelithd may report on the stream before its
         // data connection is up.
         let token = response.stream_token;
+        // Releases the stream if this is given up on before it is handed out.
+        let held = Held(&self.inner, token);
         let dropped = Arc::new(AtomicU64::new(0));
         self.inner
             .drops
@@ -279,14 +285,9 @@ impl Client {
             Ok::<_, Error>((format, data))
         }
         .await;
-        let (format, data) = match attached {
-            Ok(attached) => attached,
-            Err(e) => {
-                self.inner.forget(token);
-                self.release(token);
-                return Err(e);
-            }
-        };
+        let (format, data) = attached?;
+        // The stream releases itself from now on.
+        std::mem::forget(held);
 
         Ok(Stream {
             client: self.clone(),
@@ -296,6 +297,14 @@ impl Client {
             dropped,
             data,
         })
+    }
+}
+
+struct Held<'a>(&'a Inner, u64);
+
+impl Drop for Held<'_> {
+    fn drop(&mut self) {
+        self.0.release(self.1);
     }
 }
 
@@ -366,7 +375,6 @@ impl AsyncRead for Stream {
 
 impl Drop for Stream {
     fn drop(&mut self) {
-        self.client.inner.forget(self.token);
-        self.client.release(self.token);
+        self.client.inner.release(self.token);
     }
 }
