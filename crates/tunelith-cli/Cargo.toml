@@ -13,7 +13,7 @@ name = "tunelith"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3"
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt-multi-thread"] }
 tunelith.workspace = true

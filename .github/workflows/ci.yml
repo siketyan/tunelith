@@ -53,6 +53,29 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --all-targets -- -D warnings
 
+  crates:
+    name: Crates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install --no-self-update
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # The workspace builds with the features of every crate, which hides a
+      # feature a crate needs but does not ask for until it is published alone.
+      - name: Check each crate on its own
+        run: |
+          for package in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+            cargo check --all-targets -p "$package"
+          done
+
   test:
     name: Test
     strategy:

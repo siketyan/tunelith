@@ -4,7 +4,8 @@
 # changelog of the project.
 
 [workspace]
-release_always = false
+# TODO: back to false once v0.1.0, published halfway, is through.
+release_always = true
 changelog_update = false
 git_tag_enable = false
 git_release_enable = false
