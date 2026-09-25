@@ -39,7 +39,7 @@ EPG，デスクランブルは上位のレイヤに任せます．
 | Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U[^untested] | ✅ | ✅ | ✅ | ✅ |
 | Digibest ISDBT2071 / e-better DTV03A-1TU[^untested] | ✅ | ✅ | ✅ | ✅ |
 | e-better DTV02A-5TS-P | ✅ | ✅ | ✅ | ✅ |
-| PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
+| PT4K (TBS6812)[^left] | ✅ | ✅ | — | — |
 | Linux DVB ドライバのあるその他の ISDB チューナ | ✅[^generic] | — | — | — |
 
 ✅ 対応，🚧 対応予定，— 予定なし．
@@ -61,7 +61,8 @@ EPG，デスクランブルは上位のレイヤに任せます．
 
 USB ドライバは [nusb](https://github.com/kevinmehall/nusb) の上でユーザ空間で動作し，
 Linux，Windows (WinUSB)，macOS，Chromium 系ブラウザ (`tunelith-wasm` による WebUSB)
-で動きます．Windows の PT4K は BDA 経由で扱う予定です．
+で動きます．Windows の PT4K は BDA ドライバを通して扱い，Tunelith はそれを DirectShow の
+グラフを使わず Kernel Streaming で直接操作します．
 
 PX-Q 系は 1 枚のカードに 2 枚のボードを載せたものです．Tunelith はこれを 8 チューナの
 1 デバイスにまとめ，電源もまとめて制御します．
@@ -70,9 +71,9 @@ PX-Q 系は 1 枚のカードに 2 枚のボードを載せたものです．Tun
 
 | クレート | 内容 | ライセンス |
 |---|---|---|
-| `tunelith-core` | 公開する型，`Driver` / `Device` / `Tuner` トレイト，`Registry`，汎用の Linux DVB ドライバ，nusb による USB トランスポート，tunelithd のプロトコル | MIT OR Apache-2.0 |
+| `tunelith-core` | 公開する型，`Driver` / `Device` / `Tuner` トレイト，`Registry`，汎用の Linux DVB ドライバと Windows BDA ドライバ，nusb による USB トランスポート，tunelithd のプロトコル | MIT OR Apache-2.0 |
 | [`tunelith`](crates/tunelith) | チューナを使うプログラムのための tunelithd クライアント | MIT OR Apache-2.0 |
-| `tunelith-driver-pt4k` | 汎用 DVB ドライバの上に構築した PT4K (TBS6812) ドライバ | MIT OR Apache-2.0 |
+| `tunelith-driver-pt4k` | 汎用の DVB・BDA ドライバの上に構築した PT4K (TBS6812) ドライバ | MIT OR Apache-2.0 |
 | `tunelith-driver-px4` | px4_drv から移植した PLEX / e-better / Digibest の USB チューナのドライバ | GPL-2.0-only |
 | `tunelith-bondriver` | tunelithd 経由で受信する BonDriver，BonDriver_Tunelith | MIT OR Apache-2.0 |
 | `tunelith-cli` | `tunelith` コマンドと，プログラム間でチューナを共有するデーモン tunelithd | GPL-2.0-only |

@@ -20,8 +20,9 @@ Rust (workspace of `crates/*`, edition 2024):
 - Build: `cargo build`
 - Test all: `cargo test --all-targets` (CI runs exactly this, on Linux, Windows and macOS)
 - Test one crate: `cargo test -p tunelith-driver-px4`
-- Lint: `cargo clippy --all-targets -- -D warnings` (warnings fail CI, on each OS; the DVB driver and the PT4K are
-  Linux only, and tunelithd listens on a named pipe on Windows); for the browser,
+- Lint: `cargo clippy --all-targets -- -D warnings` (warnings fail CI, on each OS; the DVB driver is Linux only,
+  the BDA driver Windows only, the PT4K on neither macOS nor the browser, and tunelithd listens on a named pipe on
+  Windows); for the browser,
   `cargo clippy -p tunelith-wasm --all-targets --target wasm32-unknown-unknown -- -D warnings`
 - E2E of `tunelith-wasm` (Playwright, TypeScript), in `crates/tunelith-wasm/e2e`: `npm ci`,
   `./build.sh --features mock`, `npm run typecheck`, `npm test` (CI runs these on the mock device). For a real
@@ -35,9 +36,16 @@ Rust (workspace of `crates/*`, edition 2024):
 - `tunelith-core` — the public types (`System`, `StreamId`, `TuneParams`, …), the `Driver` / `Device` / `Tuner`
   traits (dyn-compatible, returning `BoxFuture`), `Registry` (gives each device to the first driver that reports
   it, so a model's own driver goes before the generic one), the generic Linux DVB driver with its `Quirks` (`dvb`
-  feature, ioctls written after the uapi headers), and the USB transport over nusb (`usb` feature). nusb types stay
-  inside `usb.rs`. Chip-level traits (`I2c`, `UsbTransport`) use plain `async fn` / `impl Future` and generics.
-- `tunelith-driver-pt4k` — the PT4K (TBS6812): `Quirks` over the generic DVB driver, adding ISDB-S3.
+  feature, ioctls written after the uapi headers), the generic Windows BDA driver with its own `Quirks` (`bda`
+  feature, in `bda/`), and the USB transport over nusb (`usb` feature). nusb types stay inside `usb.rs`. Chip-level
+  traits (`I2c`, `UsbTransport`) use plain `async fn` / `impl Future` and generics.
+  - The BDA driver goes through Kernel Streaming alone (`bda/ks.rs`, after the SDK headers `ks.h`, `ksmedia.h`,
+    `bdamedia.h`): it creates and connects the pins of the tuner and capture filters itself, with no DirectShow
+    graph, whose reference clock the TBS capture filter lacks. A change of tuning goes down at
+    `KSMETHOD_BDA_COMMIT_CHANGES`, what is set after the commit waiting for the next one.
+- `tunelith-driver-pt4k` — the PT4K (TBS6812): `Quirks` over the generic DVB driver on Linux and the BDA one on
+  Windows, adding ISDB-S3; on Windows the stream id goes in TBS's property set (id 96), and the LNB supply in a
+  command got through it (id 0).
 - `tunelith-driver-px4` — the PLEX / e-better / Digibest USB tuners, a port of px4_drv run in user space:
   - `it930x.rs` is the USB bridge; `cxd2856er.rs`, `cxd2858er.rs`, `tc90522.rs`, `r850.rs`, `rt710.rs` the chips,
     each taking `&mut impl I2c` (a TC90522 relays to its tuner through `tuner_bus`, a CXD2856ER through a gate).

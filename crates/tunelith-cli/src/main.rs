@@ -166,7 +166,7 @@ async fn tune(cli: &Cli, args: &TuneArgs) -> Result<()> {
 fn registry() -> Registry {
     let drivers: Vec<Box<dyn Driver>> = vec![
         Box::new(tunelith_driver_px4::driver()),
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", windows))]
         Box::new(tunelith_driver_pt4k::driver()),
         #[cfg(target_os = "linux")]
         Box::new(tunelith_core::dvb::DvbDriver::generic()),

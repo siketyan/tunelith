@@ -39,7 +39,7 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 | Digibest ISDB2056 / ISDB2056N / e-better DTV02A-1T1S-U[^untested] | ✅ | ✅ | ✅ | ✅ |
 | Digibest ISDBT2071 / e-better DTV03A-1TU[^untested] | ✅ | ✅ | ✅ | ✅ |
 | e-better DTV02A-5TS-P | ✅ | ✅ | ✅ | ✅ |
-| PT4K (TBS6812)[^left] | ✅ | 🚧 | — | — |
+| PT4K (TBS6812)[^left] | ✅ | ✅ | — | — |
 | Other ISDB tuners with a Linux DVB driver | ✅[^generic] | — | — | — |
 
 ✅ supported, 🚧 planned, — not planned.
@@ -62,7 +62,8 @@ definitions, scanning, EPG and descrambling are left to the layer above.
 
 The USB driver runs in user space over [nusb](https://github.com/kevinmehall/nusb),
 which works on Linux, Windows (WinUSB), macOS and in Chromium browsers
-(WebUSB, through `tunelith-wasm`). On Windows, the PT4K is to go through BDA.
+(WebUSB, through `tunelith-wasm`). On Windows, the PT4K goes through its BDA
+driver, which Tunelith drives over Kernel Streaming with no DirectShow graph.
 
 A PX-Q model is two boards on one card; Tunelith joins them into one device
 of eight tuners, powered together.
@@ -71,9 +72,9 @@ of eight tuners, powered together.
 
 | Crate | Contents | License |
 |---|---|---|
-| `tunelith-core` | Public types, the `Driver` / `Device` / `Tuner` traits, `Registry`, the generic Linux DVB driver, the USB transport over nusb, the protocol of tunelithd | MIT OR Apache-2.0 |
+| `tunelith-core` | Public types, the `Driver` / `Device` / `Tuner` traits, `Registry`, the generic Linux DVB driver and Windows BDA driver, the USB transport over nusb, the protocol of tunelithd | MIT OR Apache-2.0 |
 | [`tunelith`](crates/tunelith) | The client of tunelithd, for programs using the tuners | MIT OR Apache-2.0 |
-| `tunelith-driver-pt4k` | PT4K (TBS6812) on top of the generic DVB driver | MIT OR Apache-2.0 |
+| `tunelith-driver-pt4k` | PT4K (TBS6812) on top of the generic DVB and BDA drivers | MIT OR Apache-2.0 |
 | `tunelith-driver-px4` | The PLEX / e-better / Digibest USB tuners, ported from px4_drv | GPL-2.0-only |
 | `tunelith-bondriver` | BonDriver_Tunelith, a BonDriver receiving through tunelithd | MIT OR Apache-2.0 |
 | `tunelith-cli` | The `tunelith` command and `tunelithd`, the daemon sharing the tuners among programs | GPL-2.0-only |
