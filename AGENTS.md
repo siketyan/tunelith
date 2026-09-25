@@ -53,6 +53,9 @@ Rust (workspace of `crates/*`, edition 2024):
   - `tunelithd` (`src/bin/tunelithd/`), the daemon: opens every device at start, shares a tuner among the clients
     asking for the same `TuneParams`, otherwise takes the first free one; each client reads through a bounded
     channel, losing data rather than holding the others up (`DropEvent`). `listener.rs` is where clients connect.
+- `tunelith-bondriver` — BonDriver_Tunelith, a cdylib implementing IBonDriver2 over the client, the channels from
+  a TOML file beside it. The vtable follows MSVC x64 (overloads in reverse order, `rtti.rs` for `dynamic_cast`) on
+  Windows and the Itanium order elsewhere.
 - `packaging/` — the systemd units running tunelithd for the system (`DynamicUser`, the `video` group) or for a user
   (on `$XDG_RUNTIME_DIR/tunelith/`, which the client looks for first), and the udev rule opening the USB tuners to
   the `video` group and the seat's user; shipped in the release archives.
