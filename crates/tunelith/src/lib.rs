@@ -19,6 +19,20 @@ pub use tunelith_core::{
     TunerInfo,
 };
 
+/// Where to find tunelithd: the socket of one run for the user, in
+/// `$XDG_RUNTIME_DIR/tunelith/`, if there is one, or else [`DEFAULT_SOCKET`],
+/// that of the system.
+pub fn default_socket() -> PathBuf {
+    #[cfg(unix)]
+    if let Some(dir) = std::env::var_os("XDG_RUNTIME_DIR") {
+        let user = Path::new(&dir).join("tunelith/tunelithd.sock");
+        if user.exists() {
+            return user;
+        }
+    }
+    PathBuf::from(DEFAULT_SOCKET)
+}
+
 /// A connection to tunelithd.
 ///
 /// Cloning it is cheap and shares the connection; the streams acquired

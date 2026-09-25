@@ -29,4 +29,4 @@ tunelith-driver-px4.workspace = true
 # The archives take the GPL rather than the licenses at the root.
 [package.metadata.dist]
 auto-includes = false
-include = ["LICENSE", "../../README.md"]
+include = ["LICENSE", "../../README.md", "../../packaging"]
