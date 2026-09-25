@@ -1,0 +1,14 @@
+[package]
+name = "tunelith-cli"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license = "GPL-2.0-only"
+description = "Tunes Japanese digital broadcasts by frequency and stream id, writing the stream to stdout"
+
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+futures = "0.3"
+tunelith-core.workspace = true
+tunelith-driver-pt4k.workspace = true

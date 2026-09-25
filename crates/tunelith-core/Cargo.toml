@@ -1,0 +1,19 @@
+[package]
+name = "tunelith-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+description = "Core types and traits of Tunelith, a tuner abstraction for Japanese digital broadcasting"
+
+[features]
+default = ["dvb"]
+dvb = ["dep:blocking", "dep:libc"]
+
+[dependencies]
+futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
+thiserror = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+blocking = { version = "1", optional = true }
+libc = { version = "0.2", optional = true }
