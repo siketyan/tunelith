@@ -160,6 +160,7 @@ impl<B: Board> Device for BoardDevice<B> {
                 index,
                 systems: info.systems.clone(),
                 system: None,
+                closed: false,
             }) as Box<dyn Tuner>)
         }
         .boxed()
@@ -172,6 +173,8 @@ struct BoardTuner<B: Board> {
     systems: Vec<System>,
     /// The system last tuned to.
     system: Option<System>,
+    /// Whether [`Tuner::close`] has released it, leaving nothing to drop.
+    closed: bool,
 }
 
 impl<B: Board> BoardTuner<B> {
@@ -288,26 +291,34 @@ impl<B: Board> Tuner for BoardTuner<B> {
     fn stream(&mut self) -> BoxFuture<'_, Result<(StreamFormat, ByteStream)>> {
         BoardTuner::stream(self).boxed()
     }
+
+    fn close(mut self: Box<Self>) -> BoxFuture<'static, ()> {
+        self.closed = true;
+        release(self.shared.clone(), self.index).boxed()
+    }
 }
 
 impl<B: Board> Drop for BoardTuner<B> {
     fn drop(&mut self) {
+        if self.closed {
+            return;
+        }
         let shared = self.shared.clone();
         let index = self.index;
-        // ponytail: released on a thread of its own, as Drop cannot wait;
-        // a tuner opened right after may find it still busy.
-        thread::spawn(move || {
-            block_on(async {
-                let mut state = shared.state.lock().await;
-                let (bridge, slot) = state.board.source(index);
-                shared.hubs[bridge].detach(slot);
-                let _ = state.board.set_capture(index, false).await;
-                let _ = state.board.set_lnb(index, false).await;
-                state.board.close(index).await;
-                state.opened[index] = false;
-            })
-        });
+        // Drop cannot wait, so the tuner is released on a thread of its own;
+        // `Tuner::close` is the way to know when it is.
+        thread::spawn(move || block_on(release(shared, index)));
     }
+}
+
+async fn release<B: Board>(shared: Arc<Shared<B>>, index: usize) {
+    let mut state = shared.state.lock().await;
+    let (bridge, slot) = state.board.source(index);
+    shared.hubs[bridge].detach(slot);
+    let _ = state.board.set_capture(index, false).await;
+    let _ = state.board.set_lnb(index, false).await;
+    state.board.close(index).await;
+    state.opened[index] = false;
 }
 
 /// Opens a bridge and sets it up for `inputs`.

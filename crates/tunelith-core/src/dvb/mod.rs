@@ -372,6 +372,11 @@ impl<Q: Quirks> Tuner for DvbTuner<Q> {
         }
         .boxed()
     }
+
+    fn close(self: Box<Self>) -> BoxFuture<'static, ()> {
+        // Closing the files is all it takes.
+        async move { drop(self) }.boxed()
+    }
 }
 
 /// Reads the DVR device, going on past an overflow of the kernel's buffer.

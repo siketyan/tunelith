@@ -36,6 +36,10 @@ pub trait Tuner: Send {
     /// Starts giving out what the tuner receives, in the format of the system
     /// it was last tuned to.
     fn stream(&mut self) -> BoxFuture<'_, Result<(StreamFormat, ByteStream)>>;
+
+    /// Lets go of the tuner, returning once another may open it. Dropping it
+    /// lets go of it as well, but maybe not by the time the drop returns.
+    fn close(self: Box<Self>) -> BoxFuture<'static, ()>;
 }
 
 /// An I2C bus, over which a bridge reaches the tuner and demodulator chips.
