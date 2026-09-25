@@ -419,6 +419,8 @@ struct SinkState {
     stopping: bool,
     /// Why the reads ended otherwise, for the stream to tell.
     failure: Option<io::Error>,
+    /// Whether the reads have ended, leaving nothing for a stream to take.
+    ended: bool,
 }
 
 /// The pins of a tuner filter and its capture filter, connected and
@@ -502,6 +504,7 @@ impl Graph {
                             sink.failure = Some(e);
                         }
                         sink.tx = None;
+                        sink.ended = true;
                         break;
                     }
                 };
@@ -700,6 +703,11 @@ impl<Q: Quirks> Tuner for BdaTuner<Q> {
 
     fn set_lnb(&mut self, on: bool) -> BoxFuture<'_, Result<()>> {
         async move {
+            // Marked before it may be done, so that the tuner turns it off
+            // even if this is given up on while the command runs.
+            if on {
+                self.lnb = true;
+            }
             let graph = self.graph.clone();
             let quirks = self.quirks.clone();
             blocking::unblock(move || match quirks.set_lnb(&Pin(&graph.antenna), on) {
@@ -724,7 +732,18 @@ impl<Q: Quirks> Tuner for BdaTuner<Q> {
                 })
                 .ok_or(Error::InvalidParams("the tuner has not been tuned"))?;
             let (tx, rx) = mpsc::channel(STREAM_BACKLOG);
-            self.graph.sink.lock().unwrap().tx = Some(tx);
+            {
+                // The reads may have ended already, which no stream would
+                // hear of once there.
+                let mut sink = self.graph.sink.lock().unwrap();
+                if let Some(e) = sink.failure.take() {
+                    return Err(e.into());
+                }
+                if sink.ended {
+                    return Err(io::Error::other("the capture has stopped").into());
+                }
+                sink.tx = Some(tx);
+            }
             let mut aligner = Aligner::new(format);
             let frames = rx
                 .map(move |frame| aligner.feed(frame))

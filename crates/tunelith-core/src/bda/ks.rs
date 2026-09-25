@@ -586,13 +586,18 @@ unsafe impl Send for Reader {}
 
 impl Reader {
     pub fn new(pin: std::sync::Arc<Handle>, frame: usize, in_flight: usize) -> io::Result<Self> {
-        let mut reads = std::collections::VecDeque::new();
+        // Each read goes in the reader as soon as it is in flight, so that
+        // failing to start the next one cancels it before its buffers go.
+        let mut reader = Self {
+            pin,
+            reads: std::collections::VecDeque::new(),
+        };
         for _ in 0..in_flight {
             let mut read = Read::new(frame)?;
-            read.submit(&pin)?;
-            reads.push_back(read);
+            read.submit(&reader.pin)?;
+            reader.reads.push_back(read);
         }
-        Ok(Self { pin, reads })
+        Ok(reader)
     }
 
     /// The next frame; an error once the pin stops.
