@@ -14,6 +14,8 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
-tunelith-core.workspace = true
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt-multi-thread"] }
+tunelith.workspace = true
+tunelith-core = { workspace = true, features = ["dvb"] }
 tunelith-driver-pt4k.workspace = true
 tunelith-driver-px4.workspace = true
