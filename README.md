@@ -1,0 +1,134 @@
+# Tunelith
+
+A low-level, cross-platform abstraction over tuners for the Japanese digital
+broadcasting systems: ISDB-T, ISDB-S and ISDB-S3 (4K/8K), written in Rust.
+
+Tunelith tunes by **broadcasting system, frequency and stream id** (TSID for
+ISDB-S, TLV stream id for ISDB-S3), and keeps no channel list. Channel
+definitions, scanning, EPG and descrambling are left to the layer above.
+
+> [!WARNING]
+> Tunelith is at an early stage. The API and the command line will change.
+
+## Device support
+
+| Device | Driver | ISDB-T | ISDB-S | ISDB-S3 |
+|---|---|:-:|:-:|:-:|
+| PT4K (TBS6812) | `tunelith-driver-pt4k` (Linux DVB) | ✅ | ✅ | ✅[^left] |
+| e-better DTV02A-5TS-P | `tunelith-driver-px4` (USB) | ✅ | ✅ | — |
+| PLEX PX-MLT5U / PX-MLT5PE / PX-MLT8PE | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
+| Digibest ISDB6014 V2.0 (4TS) | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
+| PLEX PX-W3U4 / PX-W3PE4 / PX-W3PE5 | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
+| PLEX PX-Q3U4 / PX-Q3PE4 / PX-Q3PE5 | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
+| PLEX PX-M1UR | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
+| PLEX PX-S1UR | `tunelith-driver-px4` (USB) | ✅[^untested] | — | — |
+| Digibest ISDB2056 / ISDB2056N | `tunelith-driver-px4` (USB) | ✅[^untested] | ✅[^untested] | — |
+| Digibest ISDBT2071 | `tunelith-driver-px4` (USB) | ✅[^untested] | — | — |
+| Other ISDB tuners with a Linux DVB driver | generic DVB in `tunelith-core` | ✅[^generic] | ✅[^generic] | — |
+
+[^left]: Tested with right-hand circular 4K broadcasts only; a left-hand one
+    (NHK BS8K) could not be received with the antenna at hand, by any tool.
+[^untested]: Ported from px4_drv along with the DTV02A-5TS-P, but not yet
+    tested on the device itself. Reports are welcome.
+[^generic]: Whatever the kernel driver supports, taken as it is. Model-specific
+    handling goes in a driver of its own.
+
+Every device has been tested on Linux only so far. The USB driver runs in user
+space over [nusb](https://github.com/kevinmehall/nusb), so Windows and macOS are
+within reach but untested.
+
+A PX-Q model is two boards on one card; Tunelith joins them into one device
+of eight tuners, powered together.
+
+## Crates
+
+| Crate | Contents | License |
+|---|---|---|
+| `tunelith-core` | Public types, the `Driver` / `Device` / `Tuner` traits, `Registry`, the generic Linux DVB driver, the USB transport over nusb | MIT OR Apache-2.0 |
+| `tunelith-driver-pt4k` | PT4K (TBS6812) on top of the generic DVB driver | MIT OR Apache-2.0 |
+| `tunelith-driver-px4` | The PLEX / e-better / Digibest USB tuners, ported from px4_drv | GPL-2.0-only |
+| `tunelith-cli` | The `tunelith-cli` command | GPL-2.0-only |
+
+`tunelith-driver-px4` is a port of [px4_drv](https://github.com/tsukumijima/px4_drv)
+and is under its license, GPL-2.0-only; see its [PROVENANCE.md](crates/tunelith-driver-px4/PROVENANCE.md).
+A program that links it is under the GPL as well.
+
+## Getting started
+
+### Build
+
+The toolchain is pinned in `rust-toolchain.toml`.
+
+```shell
+cargo build --release
+```
+
+### Firmware
+
+The USB tuners need the IT930x firmware, `it930x-firmware.bin`, which Tunelith
+does not ship. Put it in one of:
+
+- `/lib/firmware/`
+- `$XDG_DATA_HOME/tunelith/firmware/` (`~/.local/share/tunelith/firmware/` by default)
+- `%ProgramData%\tunelith\firmware\` on Windows
+
+If px4_drv is installed, the file is already in `/lib/firmware/`.
+
+### Permissions (Linux)
+
+The USB tuners are driven through usbfs, which needs write access to the
+device node. For instance, in `/etc/udev/rules.d/90-tunelith.rules`:
+
+```
+SUBSYSTEM=="usb", ATTR{idVendor}=="0511", MODE="0664", GROUP="video"
+```
+
+If the px4_drv kernel module is loaded, Tunelith takes the device from it when
+opening it; the module is to be blacklisted for Tunelith to be the only one
+using the device. The DVB tuners need access to `/dev/dvb`, usually through the
+`video` group.
+
+## Usage
+
+List the devices and their tuners:
+
+```shell
+tunelith-cli list
+```
+
+Tune and write the stream to stdout:
+
+```shell
+# ISDB-T: the frequency in kHz.
+tunelith-cli tune --system isdb-t --freq 521143 > out.ts
+
+# ISDB-S: the downlink frequency in kHz, before the LNB converts it, and the TSID.
+tunelith-cli tune --system isdb-s --freq 11727480 --stream-id 0x4010 > out.ts
+
+# ISDB-S3: the TLV stream id; add `--polarization left` for a left-hand circular broadcast.
+tunelith-cli tune --system isdb-s3 --freq 12034360 --stream-id 0xB110 > out.tlv
+```
+
+| Option | Description |
+|---|---|
+| `--system` | `isdb-t`, `isdb-s` or `isdb-s3` |
+| `--freq` | The frequency on air in kHz. For a satellite, the downlink frequency (11727480 for BS-1), which Tunelith converts for the LNB |
+| `--stream-id` | The TSID for ISDB-S, the TLV stream id for ISDB-S3; decimal, or hexadecimal with `0x`. Relative TS numbers are not accepted |
+| `--polarization` | `right` (default) or `left` |
+| `--tuner` | The tuner to use, as `list` shows it; the first free one receiving the system if omitted |
+| `--lnb` | Powers the LNB of the antenna |
+| `--duration` | Stops after this many seconds |
+
+The stream is MPEG-2 TS for ISDB-T and ISDB-S, and TLV for ISDB-S3.
+
+## Not in scope
+
+- A channel list, channel scanning, service separation and EPG.
+- Descrambling (B-CAS / ACAS).
+- Loading BonDriver DLLs, recpt1-compatible command lines, a Mirakurun-compatible API.
+- The TS obfuscation of the old PLEX models.
+
+## License
+
+Each crate is under the license in the table above. The IT930x firmware is not
+part of Tunelith.
