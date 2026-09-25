@@ -1,0 +1,17 @@
+[package]
+name = "tunelithd"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license = "GPL-2.0-only"
+description = "Daemon sharing Japanese digital broadcasting tuners among programs"
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+futures = "0.3"
+getrandom = "0.4"
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+tunelith-core = { workspace = true, features = ["dvb"] }
+tunelith-driver-pt4k.workspace = true
+tunelith-driver-px4.workspace = true

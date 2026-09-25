@@ -69,6 +69,19 @@ impl TuneParams {
             .ok_or(Error::InvalidParams("the frequency is below the LNB's"))
     }
 
+    /// The same, with the polarization that goes without saying said: right
+    /// for a satellite, none for ISDB-T. Equal once normalised, two tune to the
+    /// same.
+    pub fn normalized(self) -> Self {
+        Self {
+            polarization: self
+                .system
+                .is_satellite()
+                .then(|| self.polarization.unwrap_or_default()),
+            ..self
+        }
+    }
+
     /// The format [`Tuner::stream`](crate::Tuner::stream) gives out for this
     /// system.
     pub fn stream_format(&self) -> StreamFormat {
@@ -132,6 +145,20 @@ mod tests {
         let left = satellite(11_996_480, Some(Polarization::Left));
         assert_eq!(left.if_frequency_khz().unwrap(), 2_491_480);
         assert!(satellite(1_318_000, None).if_frequency_khz().is_err());
+    }
+
+    #[test]
+    fn normalized() {
+        let right = satellite(11_996_000, Some(Polarization::Right));
+        assert_eq!(satellite(11_996_000, None).normalized(), right.normalized());
+        assert_ne!(
+            right.normalized(),
+            satellite(11_996_000, Some(Polarization::Left)).normalized()
+        );
+        let mut terrestrial = right;
+        terrestrial.system = System::IsdbT;
+        terrestrial.stream_id = None;
+        assert_eq!(terrestrial.normalized().polarization, None);
     }
 
     #[test]

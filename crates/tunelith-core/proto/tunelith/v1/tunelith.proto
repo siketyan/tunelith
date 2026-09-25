@@ -26,6 +26,7 @@ message Envelope {
     SignalResponse signal_response = 17;
 
     DropEvent drop_event = 30;
+    StreamEndEvent stream_end_event = 31;
   }
 }
 
@@ -119,6 +120,14 @@ message SignalRequest {
 message SignalResponse {
   bool locked = 1;
   optional double cnr_db = 2;
+}
+
+// Sent before tunelithd ends a stream the client has not released, as its
+// source ended or failed.
+message StreamEndEvent {
+  uint64 stream_token = 1;
+  // Why the stream failed; empty if its source simply ended.
+  string error = 2;
 }
 
 // Sent once a stream that fell behind catches up again, with what it missed.
