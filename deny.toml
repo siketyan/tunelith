@@ -1,0 +1,18 @@
+# The binaries link GPL-2.0-only code (tunelith-driver-px4), so every
+# dependency must be compatible with GPL-2.0. Apache-2.0 alone is not, which is
+# why it is missing below: a crate under "MIT OR Apache-2.0" passes through MIT.
+
+[graph]
+all-features = true
+
+[licenses]
+allow = [
+    "MIT",
+    "BSD-2-Clause",
+    "Unicode-3.0",
+    "GPL-2.0-only",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "allow"
