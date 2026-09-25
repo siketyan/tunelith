@@ -155,9 +155,17 @@ impl Tuner {
             return Err(JsError::new("a read is in progress"));
         }
         *self.reading.borrow_mut() = Some(handle);
-        let chunk = Abortable::new(self.next_chunk(), registration).await;
-        self.reading.take();
-        chunk.unwrap_or(Ok(None))
+        match Abortable::new(self.next_chunk(), registration).await {
+            // The handle is still this read's, no other read starting while
+            // it is there.
+            Ok(chunk) => {
+                self.reading.take();
+                chunk
+            }
+            // Whoever aborted it took the handle, and one of a read started
+            // since may be there now.
+            Err(_) => Ok(None),
+        }
     }
 
     /// Lets go of the tuner, returning once another may open it.
