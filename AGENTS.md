@@ -39,15 +39,22 @@ Rust (workspace of `crates/*`, edition 2024):
     px4_drv's `ptx_chrdev.c`. `pxmlt.rs`, `px4.rs` and `single.rs` are the boards; `stream.rs` splits the TS of a
     bridge among its tuners.
   - `lib.rs` has the model table (USB product ids) and the firmware search.
-- `tunelith-cli` — the `tunelith` command (`list`, `tune`).
+- `tunelith-core::proto` — the protocol of tunelithd, generated from `crates/tunelith-core/proto/tunelith/v1/tunelith.proto`
+  by rust-protobuf (3.x, MIT; not prost or other Apache-2.0-only runtimes) in `build.rs`: length-prefixed `Envelope`s
+  on a control connection, and a data connection per stream carrying the raw bytes after its `Hello`.
+- `tunelithd` — the daemon: opens every device at start, shares a tuner among the clients asking for the same
+  `TuneParams`, otherwise takes the first free one; each client reads through a bounded channel, losing data rather
+  than holding the others up (`DropEvent`).
+- `tunelith` — the client of tunelithd (Tokio, Unix domain sockets).
+- `tunelith-cli` — the `tunelith` command (`list`, `tune`), through tunelithd or, with `--direct`, the devices.
 
 Frequencies are in kHz. A satellite frequency is the downlink one, before the LNB (`TuneParams::if_frequency_khz`
 converts it); a `StreamId` is never a relative TS number.
 
 ## Licensing
 
-- `tunelith-core` and `tunelith-driver-pt4k` are MIT OR Apache-2.0; `tunelith-driver-px4` and `tunelith-cli` are
-  GPL-2.0-only, as px4_drv is.
+- `tunelith-core`, `tunelith` and `tunelith-driver-pt4k` are MIT OR Apache-2.0; `tunelith-driver-px4`, `tunelithd`
+  and `tunelith-cli` are GPL-2.0-only, as px4_drv is.
 - Never copy or translate GPL code, px4_drv included, into the permissive crates: the dependency goes from
   `tunelith-driver-px4` to `tunelith-core`, never the other way. Linux uapi headers may be followed.
 - Code ported from elsewhere keeps the original copyright in the file header, and the source goes in the

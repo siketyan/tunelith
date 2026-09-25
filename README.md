@@ -48,9 +48,11 @@ of eight tuners, powered together.
 
 | Crate | Contents | License |
 |---|---|---|
-| `tunelith-core` | Public types, the `Driver` / `Device` / `Tuner` traits, `Registry`, the generic Linux DVB driver, the USB transport over nusb | MIT OR Apache-2.0 |
+| `tunelith-core` | Public types, the `Driver` / `Device` / `Tuner` traits, `Registry`, the generic Linux DVB driver, the USB transport over nusb, the protocol of tunelithd | MIT OR Apache-2.0 |
+| `tunelith` | The client of tunelithd | MIT OR Apache-2.0 |
 | `tunelith-driver-pt4k` | PT4K (TBS6812) on top of the generic DVB driver | MIT OR Apache-2.0 |
 | `tunelith-driver-px4` | The PLEX / e-better / Digibest USB tuners, ported from px4_drv | GPL-2.0-only |
+| `tunelithd` | The daemon sharing the tuners among programs | GPL-2.0-only |
 | `tunelith-cli` | The `tunelith` command | GPL-2.0-only |
 
 `tunelith-driver-px4` is a port of [px4_drv](https://github.com/tsukumijima/px4_drv)
@@ -94,6 +96,24 @@ using the device. The DVB tuners need access to `/dev/dvb`, usually through the
 
 ## Usage
 
+### tunelithd
+
+tunelithd holds the devices and shares the tuners among programs. A program
+asks it for a stream of what to receive, and gets one of a free tuner, or of
+the tuner already receiving the same for another program.
+
+```shell
+tunelithd
+```
+
+It listens on `/run/tunelith/tunelithd.sock`, or where `--socket` or
+`TUNELITH_SOCKET` says. Whoever may write to the socket may use the tuners.
+
+### The `tunelith` command
+
+The command goes through tunelithd, or opens the devices itself with
+`--direct`.
+
 List the devices and their tuners:
 
 ```shell
@@ -122,6 +142,8 @@ tunelith tune --system isdb-s3 --freq 12034360 --stream-id 0xB110 > out.tlv
 | `--tuner` | The tuner to use, as `list` shows it; the first free one receiving the system if omitted |
 | `--lnb` | Powers the LNB of the antenna |
 | `--duration` | Stops after this many seconds |
+| `--direct` | Opens the devices directly rather than through tunelithd |
+| `--socket` | The socket of tunelithd (or `TUNELITH_SOCKET`) |
 
 The stream is MPEG-2 TS for ISDB-T and ISDB-S, and TLV for ISDB-S3.
 
