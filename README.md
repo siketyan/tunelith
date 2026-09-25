@@ -50,7 +50,7 @@ of eight tuners, powered together.
 | Crate | Contents | License |
 |---|---|---|
 | `tunelith-core` | Public types, the `Driver` / `Device` / `Tuner` traits, `Registry`, the generic Linux DVB driver, the USB transport over nusb, the protocol of tunelithd | MIT OR Apache-2.0 |
-| `tunelith` | The client of tunelithd | MIT OR Apache-2.0 |
+| [`tunelith`](crates/tunelith) | The client of tunelithd, for programs using the tuners | MIT OR Apache-2.0 |
 | `tunelith-driver-pt4k` | PT4K (TBS6812) on top of the generic DVB driver | MIT OR Apache-2.0 |
 | `tunelith-driver-px4` | The PLEX / e-better / Digibest USB tuners, ported from px4_drv | GPL-2.0-only |
 | `tunelith-cli` | The `tunelith` command and `tunelithd`, the daemon sharing the tuners among programs | GPL-2.0-only |

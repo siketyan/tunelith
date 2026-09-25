@@ -1,8 +1,5 @@
-//! The client of tunelithd, the daemon that shares the tuners among programs.
-//!
-//! A [`Client`] asks for a [`Stream`] of what to receive; tunelithd picks a
-//! free tuner for it, or shares the one another client is receiving the same
-//! on. The client needs a Tokio runtime.
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
 
 use std::collections::HashMap;
 use std::io;
@@ -23,6 +20,9 @@ pub use tunelith_core::{
 };
 
 /// A connection to tunelithd.
+///
+/// Cloning it is cheap and shares the connection; the streams acquired
+/// through it keep it open while they live.
 #[derive(Clone)]
 pub struct Client {
     inner: Arc<Inner>,
@@ -75,24 +75,33 @@ impl Inner {
     }
 }
 
+/// A device tunelithd holds, as [`Client::list`] reports it.
 #[derive(Clone, Debug)]
 pub struct DeviceStatus {
+    /// The id and the name of the device.
     pub info: DeviceInfo,
+    /// The tuners of the device.
     pub tuners: Vec<TunerStatus>,
 }
 
+/// A tuner of a [`DeviceStatus`].
 #[derive(Clone, Debug)]
 pub struct TunerStatus {
+    /// The id of the tuner, to pass as [`AcquireOptions::tuner`], and the
+    /// systems it receives.
     pub info: TunerInfo,
     /// Whether a stream holds the tuner.
     pub busy: bool,
 }
 
+/// How to acquire a stream; the default takes any tuner, with the LNB off.
 #[derive(Clone, Debug, Default)]
 pub struct AcquireOptions {
-    /// The tuner to use; any free one receiving the system if `None`.
+    /// The id of the tuner to use, as in [`TunerInfo::id`]; any free one
+    /// receiving the system if `None`.
     pub tuner: Option<String>,
-    /// Powers the LNB of the antenna.
+    /// Powers the LNB of the antenna, for a satellite system when no other
+    /// equipment feeds it.
     pub lnb: bool,
 }
 
@@ -162,6 +171,11 @@ async fn connect(path: &Path, role: Role) -> Result<Connection> {
 }
 
 impl Client {
+    /// Connects to tunelithd listening at `path`, usually
+    /// [`DEFAULT_SOCKET`]: a Unix domain socket, or a named pipe on Windows.
+    ///
+    /// Fails if tunelithd is not there, the user may not connect to it, or it
+    /// speaks another version of the protocol.
     pub async fn connect(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref().to_owned();
         let stream = connect(&path, Role::Control(Default::default())).await?;
@@ -241,6 +255,8 @@ impl Client {
         }
     }
 
+    /// Lists the devices tunelithd holds, with their tuners and whether each
+    /// is in use.
     pub async fn list(&self) -> Result<Vec<DeviceStatus>> {
         let Body::ListResponse(response) = self.call(Body::ListRequest(Default::default())).await?
         else {
@@ -274,6 +290,37 @@ impl Client {
     }
 
     /// Takes a stream of what `params` tunes to.
+    ///
+    /// tunelithd shares the tuner already receiving the same `params` for
+    /// another client if there is one, and otherwise tunes a free tuner
+    /// receiving `params.system`, or the one `options.tuner` names. The
+    /// stream holds the tuner until dropped.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `params` is not valid (see [`TuneParams::validate`]), no
+    /// tuner is free, or the tuner cannot lock on the signal.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # async fn example(client: tunelith::Client) -> tunelith::Result<()> {
+    /// use tunelith::{AcquireOptions, System, TuneParams};
+    ///
+    /// let params = TuneParams {
+    ///     system: System::IsdbT,
+    ///     frequency_khz: 521_143,
+    ///     stream_id: None,
+    ///     polarization: None,
+    /// };
+    /// let options = AcquireOptions {
+    ///     tuner: Some("0000000001#0".to_owned()),
+    ///     ..Default::default()
+    /// };
+    /// let stream = client.acquire(params, options).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn acquire(&self, params: TuneParams, options: AcquireOptions) -> Result<Stream> {
         params.validate()?;
         let request = proto::AcquireRequest {
@@ -334,6 +381,14 @@ impl Drop for Held<'_> {
 }
 
 /// What a tuner receives, as bytes to read, until dropped.
+///
+/// The bytes are in the [`StreamFormat`] of the system: MPEG-2 TS for ISDB-T
+/// and ISDB-S, TLV for ISDB-S3. A read returns 0 bytes at the end of the
+/// stream, and fails if the stream ended on an error.
+///
+/// tunelithd drops the bytes a stream is too slow to take rather than holding
+/// up the other clients on the tuner; [`Stream::dropped_bytes`] counts them.
+/// Dropping the stream releases the tuner.
 pub struct Stream {
     client: Client,
     token: u64,
@@ -349,6 +404,7 @@ impl Stream {
         &self.tuner
     }
 
+    /// The format of the bytes the stream gives out.
     pub fn format(&self) -> StreamFormat {
         self.format
     }
@@ -358,6 +414,7 @@ impl Stream {
         self.dropped.load(Ordering::Relaxed)
     }
 
+    /// Asks tunelithd for the signal the tuner receives now.
     pub async fn signal(&self) -> Result<Signal> {
         let request = proto::SignalRequest {
             stream_token: self.token,
