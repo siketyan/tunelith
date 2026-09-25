@@ -8,8 +8,10 @@
 use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::pin::pin;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use clap::Parser;
 use futures::StreamExt;
@@ -25,6 +27,8 @@ use tunelith_core::{ByteStream, Device, Error, Registry, Result, StreamFormat, T
 
 /// The chunks a client may fall behind by before its stream loses data.
 const BACKLOG: usize = 256;
+/// How long a stream waits for the tuner it asks for to be closed.
+const CLOSE_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -39,12 +43,16 @@ type Chunk = Arc<[u8]>;
 struct Daemon {
     devices: Vec<Box<dyn Device>>,
     state: Mutex<State>,
+    /// Notified when a tuner is closed.
+    closed: Notify,
 }
 
 #[derive(Default)]
 struct State {
-    /// The ids of the tuners streams hold.
+    /// The ids of the tuners streams hold, or that are being closed.
     busy: HashSet<String>,
+    /// The ids of the tuners being closed.
+    closing: HashSet<String>,
     sessions: Vec<Arc<Session>>,
     /// The session of each stream token.
     tokens: HashMap<u64, Arc<Session>>,
@@ -148,7 +156,8 @@ impl Daemon {
         request: &proto::AcquireRequest,
         events: &mpsc::UnboundedSender<Envelope>,
     ) -> Result<proto::AcquireResponse> {
-        let params = TuneParams::try_from(&*request.params)?;
+        // Normalised, so that asking for the same in other words shares it.
+        let params = TuneParams::try_from(&*request.params)?.normalized();
         params.validate()?;
         let wanted = |id: &str| request.tuner.is_empty() || request.tuner == id;
 
@@ -166,19 +175,27 @@ impl Daemon {
 
         // ponytail: two clients asking for the same at once may each take a
         // tuner; the second could wait on the first instead.
-        for device in &self.devices {
-            for (index, info) in device.tuners().iter().enumerate() {
-                if !info.systems.contains(&params.system) || !wanted(&info.id) {
-                    continue;
-                }
-                if !self.state.lock().unwrap().busy.insert(info.id.clone()) {
+        let candidates: Vec<_> = self
+            .devices
+            .iter()
+            .flat_map(|device| {
+                device
+                    .tuners()
+                    .iter()
+                    .enumerate()
+                    .map(move |(index, info)| (device.as_ref(), index, info))
+            })
+            .filter(|(_, _, info)| info.systems.contains(&params.system) && wanted(&info.id))
+            .collect();
+
+        // A tuner being closed is waited for only once no other is free.
+        for wait in [false, true] {
+            for &(device, index, info) in &candidates {
+                if !self.reserve(&info.id, wait).await {
                     continue;
                 }
 
-                match self
-                    .start(device.as_ref(), index, params, request.lnb)
-                    .await
-                {
+                match self.start(device, index, params, request.lnb).await {
                     Ok((tuner, format, stream)) => {
                         let session = Arc::new(Session {
                             params,
@@ -212,6 +229,30 @@ impl Daemon {
         })
     }
 
+    /// Takes the tuner for a new stream, if `wait` waiting for it to be
+    /// closed if it is being; whether it could.
+    async fn reserve(&self, id: &str, wait: bool) -> bool {
+        let reserved = async {
+            loop {
+                let mut closed = pin!(self.closed.notified());
+                closed.as_mut().enable();
+                {
+                    let mut state = self.state.lock().unwrap();
+                    if !state.closing.contains(id) {
+                        return state.busy.insert(id.to_owned());
+                    }
+                    if !wait {
+                        return false;
+                    }
+                }
+                closed.await;
+            }
+        };
+        tokio::time::timeout(CLOSE_TIMEOUT, reserved)
+            .await
+            .unwrap_or(false)
+    }
+
     async fn start(
         &self,
         device: &dyn Device,
@@ -231,13 +272,19 @@ impl Daemon {
     /// Hands each chunk of the stream to the clients of the session, until
     /// none is left or the stream ends.
     async fn fan_out(self: Arc<Self>, session: Arc<Session>, mut stream: ByteStream) {
+        let mut error = None;
         loop {
             let chunk = tokio::select! {
                 chunk = stream.next() => chunk,
                 () = session.stop.notified() => break,
             };
-            let Some(Ok(chunk)) = chunk else {
-                break;
+            let chunk = match chunk {
+                Some(Ok(chunk)) => chunk,
+                Some(Err(e)) => {
+                    error = Some(e.to_string());
+                    break;
+                }
+                None => break,
             };
             let chunk = Chunk::from(chunk);
             let mut subscribers = session.subscribers.lock().unwrap();
@@ -262,7 +309,7 @@ impl Daemon {
             }
         }
         drop(stream);
-        self.end(&session).await;
+        self.end(&session, error).await;
     }
 
     /// Takes `session` out of the running ones if it has no client left, so
@@ -276,18 +323,20 @@ impl Daemon {
         idle
     }
 
-    /// Ends the streams of the clients of `session`, then lets go of its
-    /// tuner.
-    async fn end(&self, session: &Arc<Session>) {
+    /// Ends the streams of the clients of `session`, for `error` if any,
+    /// then lets go of its tuner.
+    async fn end(&self, session: &Arc<Session>, error: Option<String>) {
         {
             let mut state = self.state.lock().unwrap();
             let State {
                 sessions,
                 tokens,
                 unattached,
+                closing,
                 ..
             } = &mut *state;
             sessions.retain(|s| !Arc::ptr_eq(s, session));
+            closing.insert(session.tuner_id.clone());
             tokens.retain(|token, s| {
                 let ours = Arc::ptr_eq(s, session);
                 if ours {
@@ -297,12 +346,26 @@ impl Daemon {
             });
             for (token, mut subscriber) in session.subscribers.lock().unwrap().drain() {
                 flush_drops(token, &mut subscriber);
+                let event = proto::StreamEndEvent {
+                    stream_token: token,
+                    error: error.clone().unwrap_or_default(),
+                    ..Default::default()
+                };
+                let _ = subscriber
+                    .events
+                    .send(proto::envelope(0, Body::StreamEndEvent(event)));
             }
         }
 
         // Only once the tuner is closed is it free for another stream.
-        drop(session.tuner.lock().await.take());
-        self.state.lock().unwrap().busy.remove(&session.tuner_id);
+        let tuner = session.tuner.lock().await.take();
+        if let Some(tuner) = tuner {
+            tuner.close().await;
+        }
+        let mut state = self.state.lock().unwrap();
+        state.busy.remove(&session.tuner_id);
+        state.closing.remove(&session.tuner_id);
+        self.closed.notify_waiters();
     }
 
     fn release(&self, token: u64) {
@@ -532,6 +595,7 @@ async fn run(args: Args) -> Result<()> {
     let daemon = Arc::new(Daemon {
         devices,
         state: Mutex::default(),
+        closed: Notify::new(),
     });
     let mut terminate = signal(SignalKind::terminate())?;
     loop {
