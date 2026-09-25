@@ -7,12 +7,18 @@ repository.workspace = true
 license = "GPL-2.0-only"
 description = "Tunelith in the browser, driving the PLEX PX4/PX-MLT series and their kin over WebUSB"
 
+[features]
+# Drives the mock device of tunelith-driver-mock in place of the USB tuners,
+# for testing the pages without one.
+mock = ["dep:tunelith-driver-mock"]
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 futures = "0.3"
 tunelith-core = { workspace = true }
+tunelith-driver-mock = { workspace = true, optional = true }
 tunelith-driver-px4 = { workspace = true }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

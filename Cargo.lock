@@ -878,6 +878,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tunelith-driver-mock"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "tunelith-core",
+]
+
+[[package]]
 name = "tunelith-driver-pt4k"
 version = "0.1.0"
 dependencies = [
@@ -900,6 +909,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "tunelith-core",
+ "tunelith-driver-mock",
  "tunelith-driver-px4",
  "wasm-bindgen",
  "wasm-bindgen-futures",

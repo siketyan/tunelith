@@ -23,6 +23,10 @@ Rust (workspace of `crates/*`, edition 2024):
 - Lint: `cargo clippy --all-targets -- -D warnings` (warnings fail CI, on each OS; the DVB driver and the PT4K are
   Linux only, and tunelithd listens on a named pipe on Windows); for the browser,
   `cargo clippy -p tunelith-wasm --all-targets --target wasm32-unknown-unknown -- -D warnings`
+- E2E of `tunelith-wasm` (Playwright, TypeScript), in `crates/tunelith-wasm/e2e`: `npm ci`,
+  `./build.sh --features mock`, `npm run typecheck`, `npm test` (CI runs these on the mock device). For a real
+  device, `./build.sh` and set `TUNELITH_FIRMWARE` / `TUNELITH_FREQUENCY`, with the device allowed by the
+  `WebUsbAllowDevicesForUrls` policy.
 - Format: `cargo fmt --all` (checked in CI with `--check`)
 - Licenses: `cargo deny check licenses` (CI runs it; see Licensing below)
 
@@ -47,6 +51,8 @@ Rust (workspace of `crates/*`, edition 2024):
 - `tunelith-wasm` — the USB tuners in the browser over WebUSB, for JavaScript through wasm-bindgen. wasm32 only;
   `.cargo/config.toml` gives it `--cfg=web_sys_unstable_apis`, which WebUSB needs. nusb's WebUSB types are not
   `Send`, which `Local` in `usb.rs` makes up for on the single thread of wasm32.
+- `tunelith-driver-mock` — a device that is not there, giving out null packets, for tests; `tunelith-wasm` opens it
+  with the `mock` feature.
 - `tunelith` — the client of tunelithd (Tokio; a Unix domain socket, or a named pipe on Windows).
 - `tunelith-cli` — the two binaries, released together:
   - `tunelith` (`src/main.rs`), the command (`list`, `tune`), through tunelithd or, with `--direct`, the devices.
@@ -62,8 +68,8 @@ converts it); a `StreamId` is never a relative TS number.
 
 ## Licensing
 
-- `tunelith-core`, `tunelith` and `tunelith-driver-pt4k` are MIT OR Apache-2.0; `tunelith-driver-px4`,
-  `tunelith-wasm` and `tunelith-cli` are GPL-2.0-only, as px4_drv is.
+- `tunelith-core`, `tunelith`, `tunelith-driver-pt4k` and `tunelith-driver-mock` are MIT OR Apache-2.0;
+  `tunelith-driver-px4`, `tunelith-wasm` and `tunelith-cli` are GPL-2.0-only, as px4_drv is.
 - Never copy or translate GPL code, px4_drv included, into the permissive crates: the dependency goes from
   `tunelith-driver-px4` to `tunelith-core`, never the other way. Linux uapi headers may be followed.
 - Code ported from elsewhere keeps the original copyright in the file header, and the source goes in the

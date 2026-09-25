@@ -1,2 +1,5 @@
 /target
 /crates/tunelith-wasm/example/pkg/
+/crates/tunelith-wasm/e2e/node_modules/
+/crates/tunelith-wasm/e2e/test-results/
+/crates/tunelith-wasm/e2e/playwright-report/
