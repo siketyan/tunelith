@@ -42,14 +42,16 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
       # A tag pushed with GITHUB_TOKEN starts no workflow, but a dispatch does:
       # release.yml builds the tagged commit, fills in the draft release and
-      # publishes it.
+      # publishes it. The tag comes from the version rather than from the
+      # release of tunelith-cli, which a rerun finishing a release may have
+      # made already; every crate shares the version.
       - name: Build the artifacts
         if: steps.release-plz.outputs.releases_created == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASES: ${{ steps.release-plz.outputs.releases }}
         run: |
-          tag=$(jq -r '.[] | select(.package_name == "tunelith-cli") | .tag' <<< "$RELEASES")
+          tag="v$(jq -r '.[0].version' <<< "$RELEASES")"
           gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" -f tag="$tag"
 
   release-pr:
